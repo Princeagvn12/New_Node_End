@@ -1,0 +1,1 @@
+// placeholder: frontend/src/services/course.service.js

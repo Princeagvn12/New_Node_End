@@ -1,0 +1,1 @@
+// placeholder: frontend/src/router/guards.js

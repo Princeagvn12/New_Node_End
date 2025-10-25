@@ -1,0 +1,1 @@
+<!-- placeholder: frontend/src/components/common/Table.vue -->

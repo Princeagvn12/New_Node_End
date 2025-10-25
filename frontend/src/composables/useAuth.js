@@ -1,0 +1,1 @@
+// placeholder: frontend/src/composables/useAuth.js
