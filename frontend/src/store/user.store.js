@@ -1,0 +1,1 @@
+// placeholder: frontend/src/store/user.store.js

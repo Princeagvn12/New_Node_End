@@ -1,0 +1,1 @@
+// placeholder: frontend/src/services/department.service.js

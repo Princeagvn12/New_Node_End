@@ -1,0 +1,1 @@
+<!-- placeholder: frontend/src/views/HoursView.vue -->
