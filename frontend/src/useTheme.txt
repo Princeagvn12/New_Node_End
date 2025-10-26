@@ -1,0 +1,42 @@
+import { ref, watchEffect } from 'vue'
+
+const theme = ref(localStorage.getItem('theme') || 'light')
+
+/**
+ * Initializes the theme based on system preference or stored value.
+ * This function should be called once when the app starts.
+ */
+export function initTheme() {
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  const storedTheme = localStorage.getItem('theme')
+
+  if (storedTheme) {
+    theme.value = storedTheme
+  } else {
+    theme.value = prefersDark ? 'dark' : 'light'
+  }
+
+  watchEffect(() => {
+    localStorage.setItem('theme', theme.value)
+    if (theme.value === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  })
+}
+
+/**
+ * Composable to manage the application's theme.
+ * @returns {{ theme: import('vue').Ref<'light' | 'dark'>, toggleTheme: () => void }}
+ */
+export function useTheme() {
+  const toggleTheme = () => {
+    theme.value = theme.value === 'light' ? 'dark' : 'light'
+  }
+
+  return {
+    theme,
+    toggleTheme,
+  }
+}

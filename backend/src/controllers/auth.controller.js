@@ -151,9 +151,9 @@ module.exports = {
   me
 };
 
-module.exports = {
-  login,
-  refresh,
-  logout,
-  me
-};
+// module.exports = {
+//   login,
+//   refresh,
+//   logout,
+//   me
+// };
