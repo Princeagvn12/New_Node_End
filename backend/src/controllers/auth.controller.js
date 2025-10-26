@@ -1,10 +1,12 @@
-const User = require('../models/User');
-const { 
+const {User} = require("../models/User");
+const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
-  createCookieOptions
-} = require('../config/jwt');
+  createCookieOptions,
+} = require("../config/jwt");
+
+const {comparePassword} = require("../models/User");
 
 /**
  * Login user and set JWT cookies
@@ -15,21 +17,22 @@ async function login(req, res, next) {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).populate('department', 'name');
+    const user = await User.findOne({ email }).populate("department", "name");
     if (!user || !user.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials',
-        code: 'INVALID_CREDENTIALS'
+        message: "Invalid credentials",
+        code: "INVALID_CREDENTIALS",
       });
     }
 
-    const isValidPassword = await user.comparePassword(password);
+    const isValidPassword = comparePassword(password);
+    console.log(isValidPassword);
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials',
-        code: 'INVALID_CREDENTIALS'
+        message: "Invalid credentials",
+        code: "INVALID_CREDENTIALS",
       });
     }
 
@@ -38,8 +41,8 @@ async function login(req, res, next) {
     const refreshToken = generateRefreshToken(user);
 
     // Set cookies with proper options
-    res.cookie('accessToken', accessToken, createCookieOptions(accessToken));
-    res.cookie('refreshToken', refreshToken, createCookieOptions(refreshToken));
+    res.cookie("accessToken", accessToken, createCookieOptions(accessToken));
+    res.cookie("refreshToken", refreshToken, createCookieOptions(refreshToken));
 
     // Return user profile without sensitive data
     res.json({
@@ -50,8 +53,8 @@ async function login(req, res, next) {
         email: user.email,
         role: user.role,
         department: user.department,
-        isActive: user.isActive
-      }
+        isActive: user.isActive,
+      },
     });
   } catch (error) {
     next(error);
@@ -64,12 +67,12 @@ async function login(req, res, next) {
  */
 async function refresh(req, res, next) {
   try {
-    const refreshToken = req.cookies['refreshToken'];
+    const refreshToken = req.cookies["refreshToken"];
     if (!refreshToken) {
       return res.status(401).json({
         success: false,
-        message: 'Refresh token required',
-        code: 'REFRESH_REQUIRED'
+        message: "Refresh token required",
+        code: "REFRESH_REQUIRED",
       });
     }
 
@@ -79,25 +82,25 @@ async function refresh(req, res, next) {
     if (!user || !user.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid session',
-        code: 'INVALID_SESSION'
+        message: "Invalid session",
+        code: "INVALID_SESSION",
       });
     }
 
     // Generate and set new access token
     const accessToken = generateAccessToken(user);
-    res.cookie('accessToken', accessToken, createCookieOptions(accessToken));
+    res.cookie("accessToken", accessToken, createCookieOptions(accessToken));
 
-    res.json({ 
+    res.json({
       success: true,
-      message: 'Access token renewed'
+      message: "Access token renewed",
     });
   } catch (error) {
-    if (error.name === 'TokenExpiredError') {
+    if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         success: false,
-        message: 'Session expired, please login again',
-        code: 'SESSION_EXPIRED'
+        message: "Session expired, please login again",
+        code: "SESSION_EXPIRED",
       });
     }
     next(error);
@@ -109,11 +112,11 @@ async function refresh(req, res, next) {
  * @route POST /api/auth/logout
  */
 function logout(req, res) {
-  res.clearCookie('accessToken', { path: '/' });
-  res.clearCookie('refreshToken', { path: '/' });
-  res.json({ 
+  res.clearCookie("accessToken", { path: "/" });
+  res.clearCookie("refreshToken", { path: "/" });
+  res.json({
     success: true,
-    message: 'Logged out successfully'
+    message: "Logged out successfully",
   });
 }
 
@@ -124,20 +127,20 @@ function logout(req, res) {
 async function me(req, res, next) {
   try {
     const user = await User.findById(req.user.id)
-      .select('-password')
-      .populate('department', 'name');
+      .select("-password")
+      .populate("department", "name");
 
     if (!user || !user.isActive) {
       return res.status(401).json({
         success: false,
-        message: 'User not found or inactive',
-        code: 'INVALID_USER'
+        message: "User not found or inactive",
+        code: "INVALID_USER",
       });
     }
 
     res.json({
       success: true,
-      data: user
+      data: user,
     });
   } catch (error) {
     next(error);
@@ -148,7 +151,7 @@ module.exports = {
   login,
   refresh,
   logout,
-  me
+  me,
 };
 
 // module.exports = {
