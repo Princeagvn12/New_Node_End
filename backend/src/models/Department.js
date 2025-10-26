@@ -12,6 +12,6 @@ const DepartmentSchema = new Schema(
 );
 
 // Indexes
-DepartmentSchema.index({ name: 1 });
+// DepartmentSchema.index({ name: 1 });
 
 module.exports = mongoose.model('Department', DepartmentSchema);

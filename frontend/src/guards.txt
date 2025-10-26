@@ -1,0 +1,30 @@
+import { useUserStore } from '../store/user.store'
+
+let storeInitialized = false
+
+export default async function guards(to, from, next, router) {
+  const userStore = useUserStore()
+
+  // Initialize the user store only once on the first navigation.
+  if (!storeInitialized) {
+    try {
+      await userStore.init()
+    } catch (e) {
+      // This can fail if the user is not logged in, which is fine.
+    }
+    storeInitialized = true
+  }
+
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+
+  if (requiresAuth && !userStore.isAuthenticated) {
+    // Redirect to login, preserving the intended destination.
+    next({ name: 'Login', query: { redirect: to.fullPath } })
+  } else if (to.name === 'Login' && userStore.isAuthenticated) {
+    // If logged in, redirect from login page to dashboard.
+    next({ name: 'Dashboard' })
+  } else {
+    // Proceed with navigation.
+    next()
+  }
+}

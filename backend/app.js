@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 
-const { connectDB } = require('./config/db');
+const { connectDB } = require('./src/config/db');
 
 // connect to DB immediately when app is required
 connectDB().catch(err => {
@@ -13,8 +13,8 @@ connectDB().catch(err => {
   console.error('Failed to connect to DB on app startup:', err.message || err);
 });
 
-const routes = require('./routes');
-const errorMiddleware = require('./middlewares/error.middleware');
+const routes = require('./src/routes/index');
+const errorMiddleware = require('./src/middlewares/error.middleware');
 
 const app = express();
 
@@ -37,5 +37,11 @@ app.use('/api', routes);
 
 // Error handler (should be last)
 app.use(errorMiddleware);
+
+// Start server
+const port = process.env.PORT || 5000;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
 
 module.exports = app;
