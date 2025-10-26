@@ -36,11 +36,11 @@ UserSchema.pre('save', async function (next) {
 });
 
 // Instance method to compare password
-UserSchema.methods.comparePassword = function (candidatePassword) {
-	return bcrypt.compare(candidatePassword, this.password);
+const comparePassword = async function (candidatePassword) {
+	return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Indexes
 UserSchema.index({ department: 1 });
-
-module.exports = mongoose.model('User', UserSchema);
+const User = mongoose.model('User', UserSchema);
+module.exports = {User, comparePassword};
