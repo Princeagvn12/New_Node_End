@@ -1,11 +1,10 @@
 import api from './api'
 
-const getAll = () => api.get('/courses')
-const getById = (id) => api.get(`/courses/${id}`)
-const create = (payload) => api.post('/courses', payload)
-const patchStudents = (id, students) => api.patch(`/courses/${id}/students`, { students })
-const update = (id, payload) => api.patch(`/courses/${id}`, payload)
-const remove = (id) => api.delete(`/courses/${id}`)
+const getAll = () => api.get('/courses').then(res => res.data)
+const getById = (id) => api.get(`/courses/${id}`).then(res => res.data)
+const create = (payload) => api.post('/courses', payload).then(res => res.data)
+const patchStudents = (id, students) => api.patch(`/courses/${id}/students`, { students }).then(res => res.data)
+const update = (id, payload) => api.patch(`/courses/${id}`, payload).then(res => res.data)
+const remove = (id) => api.delete(`/courses/${id}`).then(res => res.data)
 
 export default { getAll, getById, create, patchStudents, update, remove }
-// placeholder: frontend/src/services/course.service.js

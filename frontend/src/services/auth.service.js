@@ -2,7 +2,8 @@ import api from './api'
 
 const login = async (credentials) => {
   const res = await api.post('/auth/login', credentials)
-  return res.data
+  // Le backend renvoie { success: true, data: { user } }
+  return res.data.data || res.data
 }
 
 const logout = async () => {
@@ -12,7 +13,8 @@ const logout = async () => {
 
 const me = async () => {
   const res = await api.get('/auth/me')
-  return res.data
+  // Le backend renvoie { success: true, data: user }
+  return res.data.data || res.data
 }
 
 const refresh = async () => {
@@ -21,4 +23,3 @@ const refresh = async () => {
 }
 
 export default { login, logout, me, refresh }
-// placeholder: frontend/src/services/auth.service.js

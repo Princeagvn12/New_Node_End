@@ -1,26 +1,28 @@
 const { verifyAccessToken } = require('../config/jwt');
 
 /**
- * Authentication middleware that checks for access token in cookies
- * and attaches user information to the request
+ * Middleware to authenticate user via JWT from cookies
  */
-function authMiddleware(req, res, next) {
+function authenticate(req, res, next) {
   try {
+    // Get access token from cookies
     const accessToken = req.cookies['accessToken'];
     
     if (!accessToken) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: 'Authentication required',
-        code: 'AUTH_REQUIRED'
+        message: 'Access token required',
+        code: 'TOKEN_REQUIRED'
       });
     }
 
+    // Verify token
     const decoded = verifyAccessToken(accessToken);
     
-    // Attach decoded user info to request for use in subsequent middlewares/controllers
+    // Attach user info to request
     req.user = {
       id: decoded.id,
+      email: decoded.email,
       role: decoded.role
     };
     
@@ -29,17 +31,25 @@ function authMiddleware(req, res, next) {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
-        message: 'Session expired',
+        message: 'Token expired',
         code: 'TOKEN_EXPIRED'
       });
     }
     
-    return res.status(401).json({
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token',
+        code: 'INVALID_TOKEN'
+      });
+    }
+    
+    return res.status(500).json({
       success: false,
-      message: 'Invalid session',
-      code: 'INVALID_TOKEN'
+      message: 'Authentication error',
+      code: 'AUTH_ERROR'
     });
   }
 }
 
-module.exports = authMiddleware;
+module.exports = authenticate;

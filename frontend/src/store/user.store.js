@@ -1,30 +1,67 @@
 import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
 import authService from '../services/auth.service'
 
-export const useUserStore = defineStore('user', {
-  state: () => ({
-    user: null,
-    isAuthenticated: false,
-  }),
-  actions: {
-    setUser(user) {
-      this.user = user
-      this.isAuthenticated = !!user
-    },
-    clearUser() {
-      this.user = null
-      this.isAuthenticated = false
-    },
-    async init() {
-      try {
-        const data = await authService.me()
-        this.setUser(data)
-        return data
-      } catch (err) {
-        this.clearUser()
-        throw err
-      }
-    },
-  },
+export const useUserStore = defineStore('user', () => {
+  // State
+  const user = ref(null)
+  const loading = ref(false)
+  const initialized = ref(false)
+
+  // Getters
+  const isAuthenticated = computed(() => !!user.value)
+  const userRole = computed(() => user.value?.role || null)
+  const userName = computed(() => user.value?.name || 'Guest')
+
+  // Actions
+  function setUser(userData) {
+    user.value = userData
+    initialized.value = true
+  }
+
+  function clearUser() {
+    user.value = null
+    initialized.value = false
+  }
+
+  async function init() {
+    if (initialized.value && user.value) {
+      return user.value
+    }
+
+    loading.value = true
+    try {
+      const response = await authService.me()
+      const userData = response.data || response
+      setUser(userData)
+      return userData
+    } catch (error) {
+      console.error('Failed to initialize user:', error)
+      clearUser()
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function hasRole(roles = []) {
+    if (!user.value) return false
+    return roles.includes(user.value.role)
+  }
+
+  return {
+    // State
+    user,
+    loading,
+    initialized,
+    // Getters
+    isAuthenticated,
+    userRole,
+    userName,
+    // Actions
+    setUser,
+    clearUser,
+    init,
+    hasRole
+  }
 })
-// placeholder: frontend/src/store/user.store.js

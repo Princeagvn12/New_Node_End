@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '../store/user.store'
 import userService from '../services/user.service'
 import departmentService from '../services/department.service'
@@ -7,64 +7,127 @@ import courseService from '../services/course.service'
 import hourService from '../services/hour.service'
 import { showError } from '../utils/toast'
 
+// shared store
 const store = useUserStore()
+
+// Computed values from store (auto-unwrapped in template)
 const role = computed(() => store.user?.role || 'guest')
+const userName = computed(() => store.user?.name || 'Invité')
 const userId = computed(() => store.user?._id)
 
-// Shared data
+// Shared data for dashboard
 const usersCount = ref(0)
 const departmentsCount = ref(0)
 const coursesCount = ref(0)
 const myCourses = ref([])
 const myHours = ref([])
 const recentUsers = ref([])
-
 const loading = ref(false)
 
-const loadForRole = async () => {
+async function loadForRole() {
+  if (!store.user) {
+    // Nothing to load until we have a user
+    return
+  }
+
   loading.value = true
   try {
-    // Fetch common lists
+    // Fetch common lists in parallel
     const [usersRes, depsRes, coursesRes] = await Promise.all([
-      userService.getAll().catch(() => ({ data: [] })),
-      departmentService.getAll().catch(() => ({ data: [] })),
-      courseService.getAll().catch(() => ({ data: [] }))
+      userService.getAll().catch(err => {
+        console.error('Failed to fetch users:', err)
+        return { data: [] }
+      }),
+      departmentService.getAll().catch(err => {
+        console.error('Failed to fetch departments:', err)
+        return { data: [] }
+      }),
+      courseService.getAll().catch(err => {
+        console.error('Failed to fetch courses:', err)
+        return { data: [] }
+      })
     ])
 
-    usersCount.value = (usersRes.data || []).length
-    departmentsCount.value = (depsRes.data || []).length
-    coursesCount.value = (coursesRes.data || []).length
+    const users = usersRes?.data ?? usersRes ?? []
+    const deps = depsRes?.data ?? depsRes ?? []
+    const courses = coursesRes?.data ?? coursesRes ?? []
 
-    // Role-specific
+    usersCount.value = users.length
+    departmentsCount.value = deps.length
+    coursesCount.value = courses.length
+
+    // Admin / RH: recent users
     if (role.value === 'admin' || role.value === 'rh') {
-      recentUsers.value = (usersRes.data || []).slice(-5).reverse()
+      recentUsers.value = users.slice(-5).reverse()
     }
 
+    // Formateur / Formateur principal: courses and hours for this teacher
     if (role.value === 'formateur' || role.value === 'formateur_principal') {
-      // my courses where teacher == userId
-      myCourses.value = (coursesRes.data || []).filter(c => c.teacher === userId.value || c.teacher?._id === userId.value)
-      // my hours
-      const hoursRes = await hourService.getMy().catch(() => ({ data: [] }))
-      myHours.value = (hoursRes.data || []).filter(h => h.teacher === userId.value || h.teacher?._id === userId.value)
+      myCourses.value = courses.filter(c => {
+        const teacherId = c.teacher?._id ?? c.teacher
+        return teacherId === userId.value
+      })
+
+      const hoursRes = await hourService.getMy().catch(err => {
+        console.error('Failed to fetch hours for teacher:', err)
+        return { data: [] }
+      })
+      const hours = hoursRes?.data ?? hoursRes ?? []
+      myHours.value = hours.filter(h => {
+        const teacherId = h.teacher?._id ?? h.teacher
+        return teacherId === userId.value
+      })
     }
 
+    // Étudiant: courses where user is a student + own hours
     if (role.value === 'etudiant') {
-      // courses where students includes userId
-      myCourses.value = (coursesRes.data || []).filter(c => Array.isArray(c.students) && c.students.includes(userId.value) || (c.students || []).some(s => s === userId.value || s?._id === userId.value))
-      const hoursRes = await hourService.getMy().catch(() => ({ data: [] }))
-      myHours.value = (hoursRes.data || []).filter(h => h.teacher === userId.value || h.teacher?._id === userId.value || h.student === userId.value)
+      myCourses.value = courses.filter(c => {
+        const students = c.students ?? []
+        return students.some(s => (s._id ?? s) === userId.value)
+      })
+
+      const hoursRes = await hourService.getMy().catch(err => {
+        console.error('Failed to fetch hours for student:', err)
+        return { data: [] }
+      })
+      myHours.value = hoursRes?.data ?? hoursRes ?? []
     }
-  } catch (e) {
-    console.error(e)
-    showError('Failed to load dashboard data')
+  } catch (err) {
+    console.error('Error loading dashboard data:', err)
+    showError('Impossible de charger les données du dashboard')
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  // ensure store already has user (if not, some guard should init it elsewhere)
-  loadForRole()
+// Initialize store and load data on mount
+onMounted(async () => {
+  try {
+    // Ensure store tries to hydrate the user (calls /auth/me)
+    await store.init().catch(() => {})
+
+    if (store.user) {
+      await loadForRole()
+    }
+  } catch (err) {
+    console.error('Dashboard init error:', err)
+  }
+})
+
+// React to user changes (login/logout or role change)
+watch(() => store.user, (newUser) => {
+  if (newUser) {
+    // reload role-specific data when a user logs in or changes
+    loadForRole()
+  } else {
+    // clear
+    usersCount.value = 0
+    departmentsCount.value = 0
+    coursesCount.value = 0
+    myCourses.value = []
+    myHours.value = []
+    recentUsers.value = []
+  }
 })
 </script>
 
