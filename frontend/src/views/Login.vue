@@ -2,26 +2,38 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-
-const email = ref('')
-const password = ref('')
-const loading = ref(false)
-const error = ref(null)
+import { showSuccess, showError } from '../utils/toast'
+import FormField from '../components/common/FormField.vue'
 
 const router = useRouter()
 const route = useRoute()
 const { login } = useAuth()
 
-const submit = async () => {
+const form = ref({
+  email: '',
+  password: ''
+})
+
+const loading = ref(false)
+
+const handleLogin = async () => {
+  if (!form.value.email || !form.value.password) {
+    showError('Please enter email and password')
+    return
+  }
+
   loading.value = true
-  error.value = null
   try {
-      const user = await login({ email: email.value, password: password.value })
-      console.log(user);
-      const redirect = route.query.redirect || { name: 'Dashboard' }
-      router.push(redirect)
-    } catch (err) {
-    error.value = err?.response?.data?.message || 'Login failed'
+    await login(form.value)
+    showSuccess('Login successful!')
+    
+    // Rediriger vers la page demandée ou dashboard
+    const redirect = route.query.redirect || '/'
+    router.push(redirect)
+  } catch (error) {
+    console.error('Login error:', error)
+    const message = error.response?.data?.message || 'Login failed. Please check your credentials.'
+    showError(message)
   } finally {
     loading.value = false
   }
@@ -29,22 +41,46 @@ const submit = async () => {
 </script>
 
 <template>
-  <div class="max-w-md mx-auto mt-12 bg-white/60 dark:bg-slate-800/60 p-6 rounded-lg shadow-md backdrop-blur">
-    <h2 class="text-2xl font-semibold text-blue-400 mb-4">Se connecter</h2>
-    <form @submit.prevent="submit" class="space-y-4">
-      <div>
-        <label class="block text-sm">Email</label>
-        <input v-model="email" type="email" required class="w-full p-2 rounded border" />
+  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800">
+    <div class="w-full max-w-md p-8 space-y-6 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-2xl shadow-2xl">
+      <div class="text-center">
+        <h1 class="text-3xl font-bold text-blue-600 dark:text-blue-400">Welcome</h1>
+        <p class="mt-2 text-gray-600 dark:text-gray-300">Sign in to your account</p>
       </div>
-      <div>
-        <label class="block text-sm">Password</label>
-        <input v-model="password" type="password" required class="w-full p-2 rounded border" />
+
+      <form @submit.prevent="handleLogin" class="space-y-4">
+        <FormField
+          v-model="form.email"
+          label="Email"
+          type="email"
+          placeholder="your.email@example.com"
+          required
+          autocomplete="email"
+        />
+
+        <FormField
+          v-model="form.password"
+          label="Password"
+          type="password"
+          placeholder="••••••••"
+          required
+          autocomplete="current-password"
+        />
+
+        <button
+          type="submit"
+          :disabled="loading"
+          class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 
+                 text-white font-semibold rounded-lg transition-colors duration-200
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+          {{ loading ? 'Signing in...' : 'Sign in' }}
+        </button>
+      </form>
+
+      <div class="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
+        <p>Test Credentials:</p>
+        <p class="font-mono mt-1">admin@uni / password</p>
       </div>
-      <div v-if="error" class="text-sm text-red-600">{{ error }}</div>
-      <div class="flex justify-end">
-        <button class="px-4 py-2 bg-blue-400 text-white rounded" :disabled="loading">{{ loading ? 'Loading...' : 'Login' }}</button>
-      </div>
-    </form>
+    </div>
   </div>
 </template>
-<!-- placeholder: frontend/src/views/Login.vue -->

@@ -6,11 +6,10 @@ import courseService from '../services/course.service'
 import userService from '../services/user.service'
 import FormField from '../components/common/FormField.vue'
 import Table from '../components/common/Table.vue'
-import { dialog } from '../plugins/confirmPlugin'
+import { confirm } from '../plugins/confirmPlugin'
 import { showSuccess, showError } from '../utils/toast'
 
 const userStore = useUserStore()
-const confirm = dialog.confirm
 
 const departments = ref([])
 const teachers = ref([])

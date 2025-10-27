@@ -1,106 +1,95 @@
 const jwt = require('jsonwebtoken');
 
-/**
- * JWT Configuration and utility functions
- * Used for managing access and refresh tokens
- */
+// Secrets from environment
+const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'your-secret-access-key';
+const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_TOKEN_SECRET || 'your-secret-refresh-key';
 
-const config = {
-  access: {
-    secret: process.env.JWT_ACCESS_TOKEN_SECRET,
-    ttl: process.env.ACCESS_TOKEN_TTL || '15m',
-  },
-  refresh: {
-    secret: process.env.JWT_REFRESH_TOKEN_SECRET,
-    ttl: process.env.REFRESH_TOKEN_TTL || '7d',
-  },
-  cookie: {
-    httpOnly: true,
-    secure: process.env.COOKIE_SECURE === 'true',
-    sameSite: 'lax',
-    path: '/'
-  }
-};
+// Token TTL from environment
+const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || '15m';
+const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
+
+// Cookie security settings
+const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
 
 /**
- * Generate access token for user
- * Contains user ID and role for authorization
+ * Generate access token
  */
 function generateAccessToken(user) {
   return jwt.sign(
-    { 
+    {
       id: user._id,
-      role: user.role 
+      email: user.email,
+      role: user.role
     },
-    config.access.secret,
-    { expiresIn: config.access.ttl }
+    ACCESS_TOKEN_SECRET,
+    { expiresIn: ACCESS_TOKEN_TTL }
   );
 }
 
 /**
- * Generate refresh token for user
- * Contains only user ID for security
+ * Generate refresh token
  */
 function generateRefreshToken(user) {
   return jwt.sign(
-    { id: user._id },
-    config.refresh.secret,
-    { expiresIn: config.refresh.ttl }
+    {
+      id: user._id,
+      email: user.email
+    },
+    REFRESH_TOKEN_SECRET,
+    { expiresIn: REFRESH_TOKEN_TTL }
   );
 }
 
 /**
- * Verify access token and return decoded payload
- * @throws {JsonWebTokenError} If token is invalid
- * @throws {TokenExpiredError} If token has expired
+ * Verify access token
  */
 function verifyAccessToken(token) {
-  try {
-    return jwt.verify(token, config.access.secret);
-  } catch (error) {
-    throw error;
-  }
+  return jwt.verify(token, ACCESS_TOKEN_SECRET);
 }
 
 /**
- * Verify refresh token and return decoded payload
- * @throws {JsonWebTokenError} If token is invalid
- * @throws {TokenExpiredError} If token has expired
+ * Verify refresh token
  */
 function verifyRefreshToken(token) {
-  try {
-    return jwt.verify(token, config.refresh.secret);
-  } catch (error) {
-    throw error;
+  return jwt.verify(token, REFRESH_TOKEN_SECRET);
+}
+
+/**
+ * Create cookie options based on token type
+ */
+function createCookieOptions(tokenType = 'access') {
+  const ttl = tokenType === 'access' ? ACCESS_TOKEN_TTL : REFRESH_TOKEN_TTL;
+  
+  // Convert TTL string to milliseconds
+  let maxAge;
+  if (ttl.endsWith('m')) {
+    maxAge = parseInt(ttl) * 60 * 1000; // minutes to ms
+  } else if (ttl.endsWith('h')) {
+    maxAge = parseInt(ttl) * 60 * 60 * 1000; // hours to ms
+  } else if (ttl.endsWith('d')) {
+    maxAge = parseInt(ttl) * 24 * 60 * 60 * 1000; // days to ms
+  } else {
+    maxAge = 15 * 60 * 1000; // default 15 minutes
   }
-}
 
-/**
- * Get token expiration time in milliseconds
- * Used for setting cookie maxAge
- */
-function getTokenExpiration(token) {
-  const decoded = jwt.decode(token);
-  return decoded.exp * 1000; // Convert to milliseconds
-}
-
-/**
- * Cookie options factory
- * Creates cookie options with proper expiration
- */
-function createCookieOptions(token) {
   return {
-    ...config.cookie,
-    maxAge: getTokenExpiration(token) - Date.now()
+    httpOnly: true,
+    secure: COOKIE_SECURE,
+    sameSite: 'lax',
+    maxAge,
+    path: '/'
   };
 }
 
 module.exports = {
-  config,
+  ACCESS_TOKEN_SECRET,
+  REFRESH_TOKEN_SECRET,
+  ACCESS_TOKEN_TTL,
+  REFRESH_TOKEN_TTL,
+  COOKIE_SECURE,
   generateAccessToken,
   generateRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
-  getTokenExpiration,
   createCookieOptions
 };

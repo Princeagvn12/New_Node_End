@@ -1,12 +1,10 @@
-const {User} = require("../models/User");
+const { User } = require("../models/User");
 const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
   createCookieOptions,
 } = require("../config/jwt");
-
-const {comparePassword} = require("../models/User");
 
 /**
  * Login user and set JWT cookies
@@ -17,8 +15,19 @@ async function login(req, res, next) {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).populate("department", "name");
-    if (!user || !user.isActive) {
+    // Validation basique
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+        code: "MISSING_CREDENTIALS",
+      });
+    }
+
+    // Trouver l'utilisateur avec le password (il est exclu par défaut avec select: false)
+    const user = await User.findOne({ email }).select('+password').populate("department", "name");
+    
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: "Invalid credentials",
@@ -26,8 +35,17 @@ async function login(req, res, next) {
       });
     }
 
-    const isValidPassword = comparePassword(password);
-    console.log(isValidPassword);
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Account is inactive. Please contact administrator.",
+        code: "ACCOUNT_INACTIVE",
+      });
+    }
+
+    // CORRECTION : Appeler comparePassword comme méthode d'instance avec await
+    const isValidPassword = await user.comparePassword(password);
+    
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
@@ -41,14 +59,14 @@ async function login(req, res, next) {
     const refreshToken = generateRefreshToken(user);
 
     // Set cookies with proper options
-    res.cookie("accessToken", accessToken, createCookieOptions(accessToken));
-    res.cookie("refreshToken", refreshToken, createCookieOptions(refreshToken));
+    res.cookie("accessToken", accessToken, createCookieOptions('access'));
+    res.cookie("refreshToken", refreshToken, createCookieOptions('refresh'));
 
     // Return user profile without sensitive data
     res.json({
       success: true,
       data: {
-        id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -57,6 +75,7 @@ async function login(req, res, next) {
       },
     });
   } catch (error) {
+    console.error('Login error:', error);
     next(error);
   }
 }
@@ -77,7 +96,7 @@ async function refresh(req, res, next) {
     }
 
     const decoded = verifyRefreshToken(refreshToken);
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).populate("department", "name");
 
     if (!user || !user.isActive) {
       return res.status(401).json({
@@ -89,7 +108,7 @@ async function refresh(req, res, next) {
 
     // Generate and set new access token
     const accessToken = generateAccessToken(user);
-    res.cookie("accessToken", accessToken, createCookieOptions(accessToken));
+    res.cookie("accessToken", accessToken, createCookieOptions('access'));
 
     res.json({
       success: true,
@@ -103,6 +122,7 @@ async function refresh(req, res, next) {
         code: "SESSION_EXPIRED",
       });
     }
+    console.error('Refresh error:', error);
     next(error);
   }
 }
@@ -130,11 +150,19 @@ async function me(req, res, next) {
       .select("-password")
       .populate("department", "name");
 
-    if (!user || !user.isActive) {
+    if (!user) {
       return res.status(401).json({
         success: false,
-        message: "User not found or inactive",
+        message: "User not found",
         code: "INVALID_USER",
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Account is inactive",
+        code: "ACCOUNT_INACTIVE",
       });
     }
 
@@ -143,6 +171,7 @@ async function me(req, res, next) {
       data: user,
     });
   } catch (error) {
+    console.error('Me error:', error);
     next(error);
   }
 }
@@ -153,10 +182,3 @@ module.exports = {
   logout,
   me,
 };
-
-// module.exports = {
-//   login,
-//   refresh,
-//   logout,
-//   me
-// };
