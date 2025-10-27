@@ -26,7 +26,7 @@ const handleLogin = async () => {
   try {
     await login(form.value)
     showSuccess('Login successful!')
-    
+
     // Rediriger vers la page demandée ou dashboard
     const redirect = route.query.redirect || '/'
     router.push(redirect)

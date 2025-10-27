@@ -1,7 +1,6 @@
 require('dotenv').config();
-const bcrypt = require('bcrypt');
 const { connectDB } = require('../config/db');
-const User = require('../models/User');
+const { User } = require('../models/User');
 const Department = require('../models/Department');
 const Course = require('../models/Course');
 const HourEntry = require('../models/HourEntry');
@@ -53,8 +52,9 @@ async function seedDepartments() {
 async function seedUsers(departments) {
   console.log('👥 Création des utilisateurs...');
   
-  const hashedPassword = await bcrypt.hash('password123', 10);
   const informatiqueDept = departments[0]; // Département d'informatique
+  // Hasher explicitement les mots de passe avant insertion pour éviter les problèmes de hook
+  const hashedPassword = await require('bcrypt').hash('password123', 10);
 
   const users = await User.create([
     {

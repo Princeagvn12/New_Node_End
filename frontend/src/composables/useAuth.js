@@ -21,7 +21,7 @@ export function useAuth() {
   async function init() {
     try {
       return await store.init()
-    } catch (e) {
+    } catch (error) {
       return null
     }
   }

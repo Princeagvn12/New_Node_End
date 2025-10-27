@@ -59,14 +59,26 @@ const teachers = ref([])
 const load = async () => {
   loading.value = true
   try {
-    const [coursesRes, depsRes, usersRes] = await Promise.all([
+    // Charger cours et départements
+    const [coursesRes, depsRes] = await Promise.all([
       courseService.getAll(),
-      departmentService.getAll(),
-      userService.getAll()
+      departmentService.getAll()
     ])
-    
+
+    // Essayer de récupérer la liste des utilisateurs (peut renvoyer 403 pour formateurs)
+    let allUsers = []
+    try {
+      allUsers = await userService.getAll()
+    } catch (ue) {
+      if (ue.response && ue.response.status === 403) {
+        console.warn('User list not available for this role, falling back to minimal users list')
+        allUsers = []
+      } else {
+        throw ue
+      }
+    }
+
     departments.value = depsRes 
-    const allUsers = usersRes 
     teachers.value = allUsers.filter(x => ['formateur', 'formateur_principal'].includes(x.role))
     students.value = allUsers.filter(x => x.role === 'etudiant')
 

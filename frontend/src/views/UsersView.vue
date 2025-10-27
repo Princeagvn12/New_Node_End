@@ -40,7 +40,6 @@ const load = async () => {
   try {
     const res = await userService.getAll()
     console.log(res);
-    
     users.value = res
   } catch (e) {
     console.error(e)
