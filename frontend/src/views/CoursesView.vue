@@ -65,15 +65,15 @@ const load = async () => {
       userService.getAll()
     ])
     
-    departments.value = depsRes.data
-    const allUsers = usersRes.data
+    departments.value = depsRes 
+    const allUsers = usersRes 
     teachers.value = allUsers.filter(x => ['formateur', 'formateur_principal'].includes(x.role))
     students.value = allUsers.filter(x => x.role === 'etudiant')
-    
-    courses.value = coursesRes.data.map(course => ({
+
+    courses.value = coursesRes.map(course => ({
       ...course,
-      department: departments.value.find(d => d._id === course.department)?.name || '-',
-      teacher: teachers.value.find(t => t._id === course.teacher)?.name || '-',
+      department: departments.value.find(d => d._id === course.department._id)?.name || '-',
+      teacher: teachers.value.find(t => t._id === course.teacher._id)?.name || '-',
       studentsCount: course.students?.length || 0
     }))
   } catch (e) {
@@ -155,7 +155,7 @@ const deleteCourse = async (course) => {
   }
 }
 
-onMounted(async () => { await load(); await loadDepsAndTeachers() })
+onMounted(async () => { await load() })
 </script>
 
 <template>
@@ -295,19 +295,5 @@ onMounted(async () => { await load(); await loadDepsAndTeachers() })
       </Table>
     </div>
   </div>
-     
-    
-
-    <div class="mt-4">
-      <Table :columns="columns" :rows="courses">
-        <template #actions="{ row }">
-          <div class="flex items-center gap-2">
-            <button class="px-2 py-1 text-sm rounded bg-slate-200 dark:bg-slate-700">Edit</button>
-            <button @click="async ()=>{ if(confirm('Delete course?')){ await courseService.remove(row._id); await load(); } }" class="px-2 py-1 text-sm rounded bg-red-200">Delete</button>
-          </div>
-        </template>
-      </Table>
-    </div>
-  
 </template>
 <!-- placeholder: frontend/src/views/CoursesView.vue -->

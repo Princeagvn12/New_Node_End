@@ -43,15 +43,16 @@ const load = async () => {
       courseService.getAll()
     ])
 
-    teachers.value = (usersRes.data || []).filter(u => ['formateur', 'formateur_principal'].includes(u.role))
+    // services return the payload directly (unwrapped by api interceptor)
+    teachers.value = (usersRes || []).filter(u => ['formateur', 'formateur_principal'].includes(u.role))
 
-    const coursesByDept = (coursesRes.data || []).reduce((acc, course) => {
+    const coursesByDept = (coursesRes || []).reduce((acc, course) => {
       const deptId = course.department && (course.department._id || course.department)
       acc[deptId] = (acc[deptId] || 0) + 1
       return acc
     }, {})
 
-    departments.value = (depsRes.data || []).map(dept => ({
+    departments.value = (depsRes || []).map(dept => ({
       ...dept,
       mainTeacher: teachers.value.find(t => t._id === (dept.mainTeacher && (dept.mainTeacher._id || dept.mainTeacher)))?.name || '-',
       courseCount: coursesByDept[dept._id] || 0

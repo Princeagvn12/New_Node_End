@@ -26,9 +26,23 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
-// Response interceptor that attempts a refresh on 401 and retries once
+// Response interceptor that unwraps the backend wrapper { success, message, data }
+// so that downstream code that expects `res.data` to be the payload keeps working.
+// Also handles 401 -> refresh retry logic in the error handler below.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    try {
+      const d = response.data
+      // If backend used the { success, message, data } envelope, unwrap it
+      if (d && typeof d === 'object' && ('success' in d) && Object.prototype.hasOwnProperty.call(d, 'data')) {
+        // Replace axios response.data with the inner payload
+        response.data = d.data
+      }
+    } catch (e) {
+      // ignore and return the original response
+    }
+    return response
+  },
   async (error) => {
     const originalRequest = error.config
 
