@@ -26,70 +26,51 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
-// Response interceptor that unwraps the backend wrapper { success, message, data }
-// so that downstream code that expects `res.data` to be the payload keeps working.
-// Also handles 401 -> refresh retry logic in the error handler below.
+// Response interceptor
 api.interceptors.response.use(
   (response) => {
-    try {
-      const d = response.data
-      // If backend used the { success, message, data } envelope, unwrap it
-      if (d && typeof d === 'object' && ('success' in d) && Object.prototype.hasOwnProperty.call(d, 'data')) {
-        // Replace axios response.data with the inner payload
-        response.data = d.data
-      }
-    } catch (e) {
-      // ignore and return the original response
+    // Déballer automatiquement { success, data, message } du backend
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      response.data = response.data.data
     }
     return response
   },
   async (error) => {
     const originalRequest = error.config
 
-    // Si pas de réponse ou pas de config, rejeter directement
     if (!error.response || !originalRequest) {
       return Promise.reject(error)
     }
 
-    // Si 401 et ce n'est pas déjà une requête de refresh ou login
-    if (error.response.status === 401 && 
-        !originalRequest._retry && 
-        !originalRequest.url.includes('/auth/login') &&
-        !originalRequest.url.includes('/auth/refresh')) {
+    // Gérer les 401 avec refresh automatique
+    if (
+      error.response.status === 401 && 
+      !originalRequest._retry && 
+      !originalRequest.url.includes('/auth/login') &&
+      !originalRequest.url.includes('/auth/refresh')
+    ) {
       
       if (isRefreshing) {
-        // Si un refresh est déjà en cours, mettre en queue
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
-        }).then(() => {
-          return api(originalRequest)
-        }).catch(err => {
-          return Promise.reject(err)
-        })
+        }).then(() => api(originalRequest)).catch(err => Promise.reject(err))
       }
 
       originalRequest._retry = true
       isRefreshing = true
 
       try {
-        // Tenter de refresh le token
         await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true })
-        
-        // Si succès, traiter la queue et rejouer la requête originale
         processQueue(null, null)
         return api(originalRequest)
       } catch (refreshError) {
-        // Si le refresh échoue, déconnecter l'utilisateur
         processQueue(refreshError, null)
-        
-        // Rediriger vers login
         if (router.currentRoute.value.name !== 'Login') {
           router.push({ 
             name: 'Login',
             query: { redirect: router.currentRoute.value.fullPath }
           })
         }
-        
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

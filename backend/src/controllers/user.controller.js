@@ -47,14 +47,11 @@ const createUser = async (req, res, next) => {
       return createResponse(res, 400, "Cet email est déjà utilisé");
     }
 
-    // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Créer l'utilisateur
+    // NE PAS hasher ici - le hook pre('save') du modèle le fait automatiquement
     const user = await User.create({
       name,
       email,
-      password: hashedPassword,
+      password, // Le password sera hashé par le hook pre('save')
       role,
       department,
       isActive: true,
@@ -139,8 +136,8 @@ const changePassword = async (req, res, next) => {
     const userId = req.params.id;
 
     // Seul l'utilisateur lui-même doit fournir son mot de passe actuel
-    if (req.user._id.toString() === userId) {
-      const user = await User.findById(userId);
+    if (req.user.id.toString() === userId) {
+      const user = await User.findById(userId).select('+password');
       const isValid = await user.comparePassword(currentPassword);
       if (!isValid) {
         return createResponse(res, 400, "Mot de passe actuel incorrect");
@@ -149,8 +146,10 @@ const changePassword = async (req, res, next) => {
       return createResponse(res, 403, "Non autorisé à changer le mot de passe");
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await User.findByIdAndUpdate(userId, { password: hashedPassword });
+    // Mettre à jour le password - le hook pre('save') le hashera automatiquement
+    const user = await User.findById(userId);
+    user.password = newPassword;
+    await user.save();
 
     return createResponse(res, 200, "Mot de passe modifié avec succès");
   } catch (error) {

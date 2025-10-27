@@ -1,9 +1,9 @@
 import api from './api'
 
 const login = async (credentials) => {
+  // L'interceptor déjà déballé res.data.data -> res.data
   const res = await api.post('/auth/login', credentials)
-  // Le backend renvoie { success: true, data: { user } }
-  return res.data.data || res.data
+  return res.data
 }
 
 const logout = async () => {
@@ -12,9 +12,9 @@ const logout = async () => {
 }
 
 const me = async () => {
+  // L'interceptor déjà déballé res.data.data -> res.data
   const res = await api.get('/auth/me')
-  // Le backend renvoie { success: true, data: user }
-  return res.data.data || res.data
+  return res.data
 }
 
 const refresh = async () => {

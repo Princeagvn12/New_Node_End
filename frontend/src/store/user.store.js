@@ -31,8 +31,8 @@ export const useUserStore = defineStore('user', () => {
 
     loading.value = true
     try {
-      const response = await authService.me()
-      const userData = response.data || response
+      // authService.me() retourne directement les données utilisateur
+      const userData = await authService.me()
       setUser(userData)
       return userData
     } catch (error) {
