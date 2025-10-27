@@ -1,6 +1,6 @@
 import api from './api'
 
-const getAll = () => api.get('/courses').then(res => res.data.courses)
+const getAll = () => api.get('/courses').then(res => res.data.courses || res.data)
 const getById = (id) => api.get(`/courses/${id}`).then(res => res.data)
 const create = (payload) => api.post('/courses', payload).then(res => res.data)
 const patchStudents = (id, students) => api.patch(`/courses/${id}/students`, { students }).then(res => res.data)

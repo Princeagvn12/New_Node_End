@@ -42,7 +42,7 @@ async function login(req, res, next) {
         code: "ACCOUNT_INACTIVE",
       });
     }
-
+    
     // CORRECTION : Appeler comparePassword comme méthode d'instance avec await
     const isValidPassword = await user.comparePassword(password);
     

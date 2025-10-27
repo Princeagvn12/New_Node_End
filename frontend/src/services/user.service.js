@@ -1,6 +1,11 @@
 import api from './api'
 
-const getAll = () => api.get('/users').then(res => res.data.users)
+// L'interceptor déballe déjà les réponses, donc res.data contient directement le payload
+const getAll = () => api.get('/users').then(res => {
+  // Backend renvoie { users: [...] } après déballage
+  return res.data.users || res.data
+})
+
 const getById = (id) => api.get(`/users/${id}`).then(res => res.data)
 const create = (payload) => api.post('/users', payload).then(res => res.data)
 const update = (id, payload) => api.patch(`/users/${id}`, payload).then(res => res.data)
