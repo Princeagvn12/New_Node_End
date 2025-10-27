@@ -3,7 +3,7 @@ import api from './api'
 // L'interceptor déballe déjà les réponses, donc res.data contient directement le payload
 const getAll = () => api.get('/users').then(res => {
   // Backend renvoie { users: [...] } après déballage
-  return res.data.users || res.data
+  return res.data.users
 })
 
 const getById = (id) => api.get(`/users/${id}`).then(res => res.data)

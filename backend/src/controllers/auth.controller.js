@@ -14,7 +14,8 @@ const {
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
-
+    console.log(req.body);
+    
     // Validation basique
     if (!email || !password) {
       return res.status(400).json({
@@ -45,6 +46,7 @@ async function login(req, res, next) {
     
     // CORRECTION : Appeler comparePassword comme méthode d'instance avec await
     const isValidPassword = await user.comparePassword(password);
+    console.log(isValidPassword);
     
     if (!isValidPassword) {
       return res.status(401).json({

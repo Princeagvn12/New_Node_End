@@ -37,11 +37,25 @@ const resetForm = () => {
 const load = async () => {
   loading.value = true
   try {
-    const [depsRes, usersRes, coursesRes] = await Promise.all([
+    // Charger d'abord départements et cours (les deux routes sont publiques / auth-protected selon route)
+    const [depsRes, coursesRes] = await Promise.all([
       departmentService.getAll(),
-      userService.getAll(),
       courseService.getAll()
     ])
+
+    // Essayer de récupérer la liste des utilisateurs (peut renvoyer 403 pour formateurs)
+    let usersRes = []
+    try {
+      usersRes = await userService.getAll()
+    } catch (ue) {
+      // Si 403, on continue avec un fallback vide — le formateur ne peut pas lister tous les utilisateurs
+      if (ue.response && ue.response.status === 403) {
+        console.warn('User list not available for this role, falling back to limited view')
+        usersRes = []
+      } else {
+        throw ue
+      }
+    }
 
     // services return the payload directly (unwrapped by api interceptor)
     teachers.value = (usersRes || []).filter(u => ['formateur', 'formateur_principal'].includes(u.role))

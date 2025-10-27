@@ -50,7 +50,14 @@ userSchema.index({ role: 1 });
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
     // this.password contient le hash stocké en base
-    return await bcrypt.compare(candidatePassword, this.password);
+    if (!this.password) {
+      // No password stored
+      return false;
+    }
+
+    // Compare once and return boolean
+    const match = await bcrypt.compare(candidatePassword, this.password);
+    return !!match;
   } catch (error) {
     console.error('Error comparing passwords:', error);
     return false;
@@ -65,6 +72,11 @@ userSchema.pre('save', async function(next) {
   }
 
   try {
+    // Si la valeur ressemble déjà à un hash bcrypt, ne pas re-hasher
+    if (typeof this.password === 'string' && this.password.startsWith('$2')) {
+      return next();
+    }
+
     // Hasher le nouveau password
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
