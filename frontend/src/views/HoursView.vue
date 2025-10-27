@@ -40,11 +40,14 @@ const load = async () => {
       hourService.getMy(),
       courseService.getAll()
     ])
+    console.log(hoursRes);
+    console.log(coursesRes);
     
-    courses.value = coursesRes.data
-    entries.value = hoursRes.data.map(entry => ({
+    
+    courses.value = coursesRes
+    entries.value = hoursRes.map(entry => ({
       ...entry,
-      courseTitle: courses.value.find(c => c._id === entry.course)?.title || 'Unknown Course',
+      courseTitle: courses.value.find(c => c._id === entry.course._id)?.title,
       date: new Date(entry.date).toLocaleDateString()
     }))
   } catch (e) {

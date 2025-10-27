@@ -26,13 +26,22 @@ const canManageUsers = computed(() => ['admin', 'rh'].includes(userStore.user?.r
 
 const showCreate = ref(false)
 const form = ref({ name: '', email: '', password: '', role: 'etudiant', department: '' })
+const columns = [
+  { key: 'name', label: 'Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'role', label: 'Role' },
+  { key: 'department', label: 'Department' },
+  { key: 'isActive', label: 'Status' }
+]
 const departments = ref([])
 
 const load = async () => {
   loading.value = true
   try {
     const res = await userService.getAll()
-    users.value = res.data
+    console.log(res);
+    
+    users.value = res
   } catch (e) {
     console.error(e)
     showError('Failed to load users')
@@ -44,7 +53,8 @@ const load = async () => {
 const loadDepartments = async () => {
   try {
     const res = await departmentService.getAll()
-    departments.value = res.data
+    departments.value = res || []
+    console.log(departments.value);
   } catch (e) {
     console.error(e)
   }
@@ -198,6 +208,9 @@ onMounted(async () => { await load(); await loadDepartments() })
     <div v-if="loading">Loading...</div>
     <div v-else class="mt-4">
       <Table :columns="columns" :rows="users">
+        <template #cell-department="{ row }">
+          {{ row.department?.name || '-' }}
+        </template>
         <template #actions="{ row }">
           <div v-if="canManageUsers" class="flex items-center gap-2">
             <button @click="editUser(row)" class="px-2 py-1 text-sm rounded bg-slate-200 hover:bg-slate-300">Edit</button>
