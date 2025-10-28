@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import courseService from '../services/course.service'
 import FormField from '../components/common/FormField.vue'
 import Table from '../components/common/Table.vue'
-import ConfirmDialog from '../components/common/ConfirmDialog.vue'
+// import ConfirmDialog from '../components/common/ConfirmDialog.vue'
 import departmentService from '../services/department.service'
 import userService from '../services/user.service'
 import { useConfirmDialog } from '../composables/useConfirmDialog'
@@ -38,7 +38,6 @@ const resetForm = () => {
     students: []
   }
   editingId.value = null
-  showForm.value = false
 }
 
 const canManageCourses = computed(() => 

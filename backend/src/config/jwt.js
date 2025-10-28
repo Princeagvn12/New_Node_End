@@ -17,9 +17,11 @@ const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
 function generateAccessToken(user) {
   return jwt.sign(
     {
-      id: user._id,
-      email: user.email,
-      role: user.role
+  id: user._id,
+  email: user.email,
+  role: user.role,
+  // include department id when present so middleware can attach it to req.user
+  department: user.department ? (user.department._id || user.department) : null
     },
     ACCESS_TOKEN_SECRET,
     { expiresIn: ACCESS_TOKEN_TTL }
