@@ -20,6 +20,8 @@ router.get('/', allow(['admin', 'rh']), userController.getUsers);
 router.get('/:id', allow(['admin', 'rh']), userController.getUserById);
 router.post('/', allow(['admin', 'rh']), validate(createUserSchema), userController.createUser);
 router.patch('/:id', allow(['admin', 'rh']), validate(updateUserSchema), userController.updateUser);
+// Patch role separately
+router.patch('/:id/role', allow(['admin', 'rh']), userController.patchRole);
 router.patch('/:id/activate', allow(['admin', 'rh']), validate(activateUserSchema), userController.toggleUserActive);
 
 // Password change: user himself or admin/rh can change

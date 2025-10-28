@@ -18,5 +18,4 @@ router.post('/', allow(['formateur_principal', 'admin']), validate(createCourseS
 router.patch('/:id', allow(['formateur_principal', 'admin']), validate(updateCourseSchema), courseController.updateCourse);
 router.patch('/:id/students', allow(['formateur_principal', 'admin']), courseController.updateCourseStudents);
 router.delete('/:id', allow(['formateur_principal', 'admin']), courseController.deleteCourse);
-
 module.exports = router;

@@ -157,6 +157,32 @@ const changePassword = async (req, res, next) => {
   }
 };
 
+const patchRole = async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    const userId = req.params.id;
+
+    if (!role || !['admin', 'rh', 'formateur_principal', 'formateur', 'etudiant'].includes(role)) {
+      return createResponse(res, 400, 'Invalid role provided');
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { role },
+      { new: true }
+    )
+      .select('-password')
+      .populate('department', 'name');
+
+    if (!user) {
+      return createResponse(res, 404, 'Utilisateur non trouvé');
+    }
+
+    return createResponse(res, 200, 'Rôle mis à jour avec succès', { user });
+  } catch (error) {
+    next(error);
+  }
+};
 module.exports = {
   getUsers,
   getUserById,
@@ -164,4 +190,7 @@ module.exports = {
   updateUser,
   toggleUserActive,
   changePassword,
+  patchRole
 };
+
+// Patch only role (admin/rh)

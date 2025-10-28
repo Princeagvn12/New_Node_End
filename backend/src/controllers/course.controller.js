@@ -63,13 +63,14 @@ const getCourseById = async (req, res, next) => {
 // Create course (formateur_principal only)
 const createCourse = async (req, res, next) => {
   try {
-    const { name, description, teacher } = req.body;
+    const { title, description, teacher, code, department} = req.body;
     
     const course = await Course.create({
-      name,
+      title,
       description,
-      department: req.user.department, // Département du formateur principal
+      code,
       teacher,
+      department, // Département du formateur principal
       students: []
     });
     
@@ -87,30 +88,39 @@ const createCourse = async (req, res, next) => {
 // Update course
 const updateCourse = async (req, res, next) => {
   try {
-    const { name, description, teacher } = req.body;
+    const { title, description, teacher } = req.body;
     const course = await Course.findById(req.params.id);
     
     if (!course) {
       return createResponse(res, 404, 'Cours non trouvé');
     }
     
-    // Vérifier que le formateur principal appartient au département du cours
-    if (course.department.toString() !== req.user.department.toString()) {
-      return createResponse(res, 403, 'Vous ne pouvez modifier que les cours de votre département');
+    // Admins peuvent modifier tous les cours
+    if (req.user.role !== 'admin') {
+      // Vérifier que le formateur principal appartient au département du cours
+      const courseDeptId = course.department && (course.department._id || course.department).toString()
+      const userDeptId = req.user.department && req.user.department.toString()
+      if (!userDeptId || courseDeptId !== userDeptId) {
+        return createResponse(res, 403, 'Vous ne pouvez modifier que les cours de votre département');
+      }
     }
     
-    course.name = name || course.name;
-    course.description = description || course.description;
-    course.teacher = teacher || course.teacher;
-    
-    await course.save();
-    await course.populate([
-      { path: 'department', select: 'name' },
-      { path: 'teacher', select: 'name email' },
-      { path: 'students', select: 'name email' }
-    ]);
-    
-    return createResponse(res, 200, 'Cours mis à jour avec succès', { course });
+    // Prepare update payload (only allowed fields)
+  const updatePayload = {};
+  if (typeof title !== 'undefined') updatePayload.title = title;
+  if (typeof description !== 'undefined') updatePayload.description = description;
+  if (typeof teacher !== 'undefined') updatePayload.teacher = teacher;
+
+    // Use atomic update
+    await Course.updateOne({ _id: course._id }, { $set: updatePayload });
+
+    // Fetch the updated course with population
+  const updatedCourse = await Course.findById(course._id)
+      .populate({ path: 'department', select: 'name' })
+      .populate({ path: 'teacher', select: 'name email' })
+      .populate({ path: 'students', select: 'name email' });
+
+    return createResponse(res, 200, 'Cours mis à jour avec succès', { course: updatedCourse });
   } catch (error) {
     next(error);
   }
@@ -121,32 +131,37 @@ const updateCourseStudents = async (req, res, next) => {
   try {
     const { action, studentIds } = req.body;
     const course = await Course.findById(req.params.id);
-    
+
     if (!course) {
       return createResponse(res, 404, 'Cours non trouvé');
     }
-    
-    // Vérifier que le formateur principal appartient au département du cours
-    if (course.department.toString() !== req.user.department.toString()) {
+
+    // Allow admin or users from same department
+    const courseDeptId = course.department && (course.department._id || course.department).toString()
+    const userDeptId = req.user.department && req.user.department.toString()
+    if (req.user.role !== 'admin' && (!userDeptId || courseDeptId !== userDeptId)) {
       return createResponse(res, 403, 'Vous ne pouvez modifier que les cours de votre département');
     }
-    
-    if (action === 'add') {
-      // Ajouter les étudiants sans doublons
-      course.students = [...new Set([...course.students, ...studentIds])];
-    } else if (action === 'remove') {
-      // Retirer les étudiants
-      course.students = course.students.filter(id => !studentIds.includes(id.toString()));
+
+    if (!Array.isArray(studentIds)) {
+      return createResponse(res, 400, 'studentIds must be an array');
     }
-    
-    await course.save();
-    await course.populate([
-      { path: 'department', select: 'name' },
-      { path: 'teacher', select: 'name email' },
-      { path: 'students', select: 'name email' }
-    ]);
-    
-    return createResponse(res, 200, 'Liste des étudiants mise à jour avec succès', { course });
+
+    if (action === 'add') {
+      // Add students atomically without duplicates
+      await Course.updateOne({ _id: course._id }, { $addToSet: { students: { $each: studentIds } } });
+    } else if (action === 'remove') {
+      await Course.updateOne({ _id: course._id }, { $pull: { students: { $in: studentIds } } });
+    } else {
+      return createResponse(res, 400, 'Invalid action');
+    }
+
+    const updatedCourse = await Course.findById(course._id)
+      .populate({ path: 'department', select: 'name' })
+      .populate({ path: 'teacher', select: 'name email' })
+      .populate({ path: 'students', select: 'name email' });
+
+    return createResponse(res, 200, 'Liste des étudiants mise à jour avec succès', { course: updatedCourse });
   } catch (error) {
     next(error);
   }

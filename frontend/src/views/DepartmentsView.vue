@@ -108,7 +108,7 @@ const editDepartment = (department) => {
 const deleteDepartment = async (department) => {
   if (!canManageDepartments.value) return
   try {
-    const confirmed = await confirm({ title: 'Delete Department', message: `Are you sure you want to delete \"${department.name}\"? This will also affect all associated courses and students.`, variant: 'danger' })
+    const confirmed = await confirm({ title: 'Delete Department', message: `Are you sure you want to delete ${department.name}? This will also affect all associated courses and students.`, variant: 'danger' })
     if (!confirmed) return
     await departmentService.remove(department._id)
     showSuccess('Department deleted successfully')
