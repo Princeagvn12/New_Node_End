@@ -183,6 +183,32 @@ const patchRole = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
+
+// Get only teachers (formateur), exclude formateur_principal
+const getTeachers = async (req, res, next) => {
+  try {
+    const teachers = await User.find({ role: 'formateur' }).select('-password').populate('department', 'name');
+    return createResponse(res, 200, 'Formateurs récupérés avec succès', { users: teachers });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get only students (for formateur_principal, admin, rh)
+const getStudents = async (req, res, next) => {
+  try {
+    const students = await User.find({ role: 'etudiant' })
+      .select('-password')
+      .populate('department', 'name');
+
+    return createResponse(res, 200, 'Étudiants récupérés avec succès', { users: students });
+  } catch (error) {
+    next(error);
+  }
+};
 module.exports = {
   getUsers,
   getUserById,
@@ -191,6 +217,9 @@ module.exports = {
   toggleUserActive,
   changePassword,
   patchRole
+  ,
+  getStudents,
+  getTeachers
 };
 
 // Patch only role (admin/rh)

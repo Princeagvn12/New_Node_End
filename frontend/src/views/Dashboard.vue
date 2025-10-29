@@ -115,10 +115,45 @@ onMounted(async () => {
 })
 
 // React to user changes (login/logout or role change)
+// For students we want a periodic refresh so they see changes made by admins/principals
+let studentRefreshInterval = null
+const startStudentPolling = () => {
+  if (studentRefreshInterval) return
+  studentRefreshInterval = setInterval(async () => {
+    try {
+      if (store.user?.role === 'etudiant') {
+        const coursesRes = await courseService.getAll().catch(() => [])
+        const hoursRes = await hourService.getMy().catch(() => [])
+
+        const courses = coursesRes?.data ?? coursesRes ?? []
+        const hours = hoursRes?.data ?? hoursRes ?? []
+
+        // update student's own lists
+        myCourses.value = courses.filter(c => {
+          const students = c.students ?? []
+          return students.some(s => (s._id ?? s) === userId.value)
+        })
+        myHours.value = hours
+      }
+    } catch (e) {
+      console.error('Student polling error:', e)
+    }
+  }, 5000) // every 5s
+}
+
+const stopStudentPolling = () => {
+  if (studentRefreshInterval) {
+    clearInterval(studentRefreshInterval)
+    studentRefreshInterval = null
+  }
+}
+
 watch(() => store.user, (newUser) => {
   if (newUser) {
     // reload role-specific data when a user logs in or changes
     loadForRole()
+    if (newUser.role === 'etudiant') startStudentPolling()
+    else stopStudentPolling()
   } else {
     // clear
     usersCount.value = 0
@@ -127,7 +162,14 @@ watch(() => store.user, (newUser) => {
     myCourses.value = []
     myHours.value = []
     recentUsers.value = []
+    stopStudentPolling()
   }
+})
+
+// cleanup on unmount
+import { onBeforeUnmount } from 'vue'
+onBeforeUnmount(() => {
+  stopStudentPolling()
 })
 </script>
 

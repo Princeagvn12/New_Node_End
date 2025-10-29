@@ -64,22 +64,37 @@ const load = async () => {
       departmentService.getAll()
     ])
 
-    // Essayer de récupérer la liste des utilisateurs (peut renvoyer 403 pour formateurs)
-    let allUsers = []
+    // Charger la liste des étudiants via endpoint dédié
+    let studentsList = []
     try {
-      allUsers = await userService.getAll()
-    } catch (ue) {
-      if (ue.response && ue.response.status === 403) {
-        console.warn('User list not available for this role, falling back to minimal users list')
-        allUsers = []
+      studentsList = await userService.getStudents()
+    } catch (err) {
+      // Si non autorisé, on garde la liste vide
+      if (err.response && err.response.status === 403) {
+        console.warn('Student list not available for this role')
+        studentsList = []
       } else {
-        throw ue
+        throw err
       }
     }
 
-    departments.value = depsRes 
-    teachers.value = allUsers.filter(x => ['formateur', 'formateur_principal'].includes(x.role))
-    students.value = allUsers.filter(x => x.role === 'etudiant')
+    // Charger teachers: si formateur_principal on appelle l'endpoint dédié; sinon si admin/rh on peut utiliser getAll
+    let teachersList = []
+    try {
+      if (userStore.user?.role === 'formateur_principal') {
+        teachersList = await userService.getTeachers()
+      } else {
+        const allUsers = await userService.getAll()
+        teachersList = allUsers.filter(x => ['formateur', 'formateur_principal'].includes(x.role))
+      }
+    } catch {
+      // Pas critique — juste pas de liste complète de teachers
+      teachersList = []
+    }
+
+    departments.value = depsRes
+    teachers.value = teachersList
+    students.value = studentsList
 
     courses.value = coursesRes.map(course => ({
       ...course,
@@ -126,8 +141,8 @@ const createOrUpdateCourse = async () => {
       await courseService.create(form.value)
       showSuccess('Course created successfully')
     }
-    resetForm()
-    await load()
+  resetForm()
+  await load()
   } catch (e) {
     console.error(e)
     showError(e?.response?.data?.message || 'Failed to save course')
@@ -167,6 +182,28 @@ const deleteCourse = async (course) => {
 }
 
 onMounted(async () => { await load() })
+
+// If current user is a student, poll courses to get dynamic updates
+let studentCoursesInterval = null
+const startStudentCoursesPolling = () => {
+  if (studentCoursesInterval) return
+  studentCoursesInterval = setInterval(async () => {
+    try {
+      await load()
+    } catch (e) {
+      console.error('Polling courses error', e)
+    }
+  }, 5000)
+}
+const stopStudentCoursesPolling = () => { if (studentCoursesInterval) { clearInterval(studentCoursesInterval); studentCoursesInterval = null } }
+
+// Start polling if student
+import { watch, onBeforeUnmount } from 'vue'
+watch(() => userStore.user?.role, (role) => {
+  if (role === 'etudiant') startStudentCoursesPolling()
+  else stopStudentCoursesPolling()
+})
+onBeforeUnmount(() => stopStudentCoursesPolling())
 </script>
 
 <template>
