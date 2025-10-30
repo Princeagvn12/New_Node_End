@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
+const {authenticate} = require('../middlewares/auth.middleware');
 const { validate } = require('../middlewares/validate.middleware');
 const { loginSchema } = require('../validations/auth.schema');
 
@@ -16,7 +16,7 @@ router.post('/login', validate(loginSchema), authController.login);
 router.post('/refresh', authController.refresh);
 
 // Protected routes - require authentication
-router.use(authMiddleware);
+router.use(authenticate);
 router.post('/logout', authController.logout);
 router.get('/me', authController.me);
 

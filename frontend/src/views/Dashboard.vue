@@ -1,4 +1,6 @@
 <script setup>
+// Give component a multi-word name to satisfy linter
+defineOptions({ name: 'DashboardView' })
 import { ref, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '../store/user.store'
 import userService from '../services/user.service'
@@ -12,7 +14,7 @@ const store = useUserStore()
 
 // Computed values from store (auto-unwrapped in template)
 const role = computed(() => store.user?.role || 'guest')
-const userName = computed(() => store.user?.name || 'Invité')
+// removed unused userName computed
 const userId = computed(() => store.user?._id)
 
 // Shared data for dashboard
@@ -61,34 +63,44 @@ async function loadForRole() {
       recentUsers.value = users.slice(-5).reverse()
     }
 
-    // Formateur / Formateur principal: courses and hours for this teacher
-    if (role.value === 'formateur' || role.value === 'formateur_principal') {
-      myCourses.value = courses.filter(c => {
+    // Formateur principal: backend already filters by department -> use returned list as-is
+    if (role.value === 'formateur_principal') {
+      myCourses.value = Array.isArray(courses) ? courses : []
+
+      const hoursRes = await hourService.getMy().catch(err => {
+        console.error('Failed to fetch hours for principal:', err)
+        return []
+      })
+      myHours.value = hoursRes?.data ?? hoursRes ?? []
+    }
+
+    // Formateur: only show courses where teacher === current user
+    if (role.value === 'formateur') {
+      const uid = String(userId.value)
+      myCourses.value = (courses || []).filter(c => {
         const teacherId = c.teacher?._id ?? c.teacher
-        return teacherId === userId.value
+        return String(teacherId) === uid
       })
 
       const hoursRes = await hourService.getMy().catch(err => {
         console.error('Failed to fetch hours for teacher:', err)
-        return { data: [] }
+        return []
       })
       const hours = hoursRes?.data ?? hoursRes ?? []
-      myHours.value = hours.filter(h => {
-        const teacherId = h.teacher?._id ?? h.teacher
-        return teacherId === userId.value
-      })
+      myHours.value = (hours || []).filter(h => String(h.teacher?._id ?? h.teacher) === uid)
     }
 
-    // Étudiant: courses where user is a student + own hours
+    // Étudiant: backend already filters courses for the student; use returned list but normalize just in case
     if (role.value === 'etudiant') {
-      myCourses.value = courses.filter(c => {
+      const uid = String(userId.value)
+      myCourses.value = (courses || []).filter(c => {
         const students = c.students ?? []
-        return students.some(s => (s._id ?? s) === userId.value)
+        return students.some(s => String(s._id ?? s) === uid)
       })
 
       const hoursRes = await hourService.getMy().catch(err => {
         console.error('Failed to fetch hours for student:', err)
-        return { data: [] }
+        return []
       })
       myHours.value = hoursRes?.data ?? hoursRes ?? []
     }
@@ -244,6 +256,19 @@ onBeforeUnmount(() => {
       <div class="glass-card p-4">
         <h3 class="font-semibold">Mes cours</h3>
         <div class="mt-2 text-lg">{{ myCourses.length }} cours</div>
+        <div class="mt-4">
+          <ul class="divide-y">
+            <li v-for="c in myCourses" :key="c._id" class="py-2">
+              <div class="flex justify-between items-center">
+                <div>
+                  <div class="font-medium">{{ c.title || c.name || 'Cours sans titre' }}</div>
+                  <div class="text-sm text-gray-500">{{ c.teacher?.name || c.teacher?.email || '' }} — {{ c.department?.name || '' }}</div>
+                </div>
+              </div>
+            </li>
+            <li v-if="!myCourses.length" class="py-2 text-sm text-gray-500">Vous n'êtes affecté à aucun cours pour le moment.</li>
+          </ul>
+        </div>
       </div>
       <div class="glass-card p-4">
         <h3 class="font-semibold">Mes heures</h3>

@@ -12,7 +12,7 @@ router.get('/', departmentController.getDepartments);
 router.get('/:id', departmentController.getDepartmentById);
 
 // Protected routes
-router.use(auth);
+router.use(auth.authenticate);
 
 // Admin only
 router.post('/', allow(['admin']), validate(createDepartmentSchema), departmentController.createDepartment);
