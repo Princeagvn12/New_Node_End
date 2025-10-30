@@ -8,7 +8,7 @@ const { createCourseSchema, updateCourseSchema } = require('../validations/cours
 const courseController = require('../controllers/course.controller');
 
 // All course routes require authentication (controller logic relies on req.user)
-router.use(auth);
+router.use(auth.authenticate);
 
 router.get('/', courseController.getCourses);
 router.get('/:id', courseController.getCourseById);

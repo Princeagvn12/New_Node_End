@@ -13,7 +13,7 @@ const {
 const userController = require('../controllers/user.controller');
 
 // All user routes require authentication
-router.use(auth);
+router.use(auth.authenticate);
 
 // Admin / RH routes
 router.get('/', allow(['admin', 'rh']), userController.getUsers);
