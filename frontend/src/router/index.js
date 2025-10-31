@@ -27,7 +27,7 @@ const routes = [
     component: UsersView,
     meta: { 
       requiresAuth: true,
-      allowedRoles: ['admin', 'rh']
+      allowedRoles: ['admin', 'rh', 'formateur_principal', 'formateur'] // <--- ajouté formateur* ici
     }
   },
   {

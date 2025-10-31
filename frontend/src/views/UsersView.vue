@@ -4,6 +4,7 @@ import userService from '../services/user.service'
 import Table from '../components/common/Table.vue'
 import FormField from '../components/common/FormField.vue'
 import departmentService from '../services/department.service'
+import courseService from '../services/course.service'
 import { useUserStore } from '../store/user.store'
 import { showSuccess, showError } from '../utils/toast'
 
@@ -23,6 +24,7 @@ const loading = ref(false)
 const confirmDialog = ref({ show: false, message: '', action: null })
 const editingUser = ref(null)
 const canManageUsers = computed(() => ['admin', 'rh'].includes(userStore.user?.role))
+const isTeacherView = computed(() => ['formateur', 'formateur_principal'].includes(userStore.user?.role))
 
 const showCreate = ref(false)
 const form = ref({ name: '', email: '', password: '', role: 'etudiant', department: '' })
@@ -34,13 +36,22 @@ const columns = [
   { key: 'isActive', label: 'Status' }
 ]
 const departments = ref([])
+const allCourses = ref([])
 
 const load = async () => {
   loading.value = true
   try {
-    const res = await userService.getAll()
-    console.log(res);
-    users.value = res
+    // If teacher/formateur_principal -> only load students
+    if (isTeacherView.value) {
+      const res = await userService.getStudents()
+      users.value = res
+      // load courses to allow unassign (we'll filter per student)
+      const coursesRes = await courseService.getAll()
+      allCourses.value = coursesRes || []
+    } else {
+      const res = await userService.getAll()
+      users.value = res
+    }
   } catch (e) {
     console.error(e)
     showError('Failed to load users')
@@ -95,50 +106,65 @@ const toggleActivate = async (row) => {
     return
   }
 
-  confirmAction(`Are you sure you want to ${row.isActive ? 'deactivate' : 'activate'} ${row.name}?`, async () => {
-    try {
-      await userService.activate(row._id, !row.isActive)
-      showSuccess(row.isActive ? 'User deactivated' : 'User activated')
-      await load()
-    } catch (e) {
-      console.error(e)
-      showError('Failed to toggle activation')
-    }
-  })
-}
-
-const deleteUser = async (row) => {
-  if (row._id === userStore.user?._id) {
-    showError('You cannot delete your own account')
+  // If admin/rh -> use existing flow
+  if (canManageUsers.value) {
+    confirmAction(`Are you sure you want to ${row.isActive ? 'deactivate' : 'activate'} ${row.name}?`, async () => {
+      try {
+        await userService.activate(row._id, !row.isActive)
+        showSuccess(row.isActive ? 'User deactivated' : 'User activated')
+        await load()
+      } catch (e) {
+        console.error(e)
+        showError('Failed to toggle activation')
+      }
+    })
     return
   }
 
-  confirmAction(`Are you sure you want to delete ${row.name}? This action cannot be undone.`, async () => {
-    try {
-      await userService.remove(row._id)
-      showSuccess('User deleted successfully')
-      await load()
-    } catch (e) {
-      console.error(e)
-      showError('Failed to delete user')
-    }
-  })
-}
-
-const changeRole = async (row, newRole) => {
-  if (row._id === userStore.user?._id) {
-    showError('You cannot change your own role')
-    await load()
+  // If teacher -> limited student activation
+  if (isTeacherView.value) {
+    confirmAction(`Are you sure you want to ${row.isActive ? 'deactivate' : 'activate'} ${row.name}?`, async () => {
+      try {
+        await userService.teacherToggleStudentActive(row._id)
+        showSuccess(row.isActive ? 'Student deactivated' : 'Student activated')
+        await load()
+      } catch (e) {
+        console.error(e)
+        showError(e?.response?.data?.message || 'Failed to toggle activation')
+      }
+    })
     return
   }
+}
+
+const unassignStudentFromCourse = async (row) => {
+  // Build list of courses where this student is enrolled and that the teacher can manage
+  const studentCourses = allCourses.value.filter(c => Array.isArray(c.students) && c.students.some(s => String(s._id || s) === String(row._id)))
+  const manageable = studentCourses.filter(c => {
+    if (userStore.user?.role === 'formateur') {
+      return String(c.teacher?._id || c.teacher) === String(userStore.user?.id)
+    } else if (userStore.user?.role === 'formateur_principal') {
+      return String(c.department?._id || c.department) === String(userStore.user?.department)
+    }
+    return false
+  })
+
+  if (manageable.length === 0) {
+    showError('Aucun cours disponible pour désaffectation pour cet étudiant')
+    return
+  }
+
+  // If multiple, ask to choose; for brevity use prompt
+  const choice = manageable.length === 1 ? manageable[0]._id : prompt('Enter courseId to unassign:\n' + manageable.map(c=>`${c._id} : ${c.title}`).join('\n'))
+  if (!choice) return
 
   try {
-    await userService.patchRole(row._id, newRole)
-    showSuccess('Role updated')
+    await userService.teacherUpdateStudentCourse(row._id, { action: 'remove', courseId: choice })
+    showSuccess('Étudiant désaffecté du cours')
     await load()
   } catch (e) {
     console.error(e)
-    showError('Failed to change role')
+    showError(e?.response?.data?.message || 'Failed to unassign student')
   }
 }
 
@@ -210,6 +236,7 @@ onMounted(async () => { await load(); await loadDepartments() })
         <template #cell-department="{ row }">
           {{ row.department?.name || '-' }}
         </template>
+        <!-- In the actions slot, show teacher-specific buttons -->
         <template #actions="{ row }">
           <div v-if="canManageUsers" class="flex items-center gap-2">
             <button @click="editUser(row)" class="px-2 py-1 text-sm rounded bg-slate-200 hover:bg-slate-300">Edit</button>
@@ -224,6 +251,12 @@ onMounted(async () => { await load(); await loadDepartments() })
               <option value="etudiant">etudiant</option>
             </select>
             <button @click="deleteUser(row)" class="px-2 py-1 text-sm rounded bg-red-100 hover:bg-red-200">Delete</button>
+          </div>
+          <div v-else-if="isTeacherView" class="flex items-center gap-2">
+            <button @click="unassignStudentFromCourse(row)" class="px-2 py-1 text-sm rounded bg-amber-100 hover:bg-amber-200">Désaffecter</button>
+            <button @click="toggleActivate(row)" class="px-2 py-1 text-sm rounded bg-red-100 hover:bg-red-200">
+              {{ row.isActive ? 'Désactiver' : 'Activer' }}
+            </button>
           </div>
           <div v-else class="text-sm text-gray-500">-</div>
         </template>

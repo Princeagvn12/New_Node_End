@@ -1,13 +1,14 @@
 const { User } = require("../models/User");
 const { createResponse } = require("../utils/response");
 const bcrypt = require("bcrypt");
+const Course = require('../models/Course');
 
 // Get all users
 const getUsers = async (req, res, next) => {
   try {
     const users = await User.find()
       .select("-password")
-      .populate("department", "name");
+      .populate("department", "name").sort({createdAt: -1});
 
     return createResponse(res, 200, "Utilisateurs récupérés avec succès", {
       users,
@@ -184,9 +185,6 @@ const patchRole = async (req, res, next) => {
   }
 };
 
-
-
-
 // Get only teachers (formateur), exclude formateur_principal
 const getTeachers = async (req, res, next) => {
   try {
@@ -209,6 +207,97 @@ const getStudents = async (req, res, next) => {
     next(error);
   }
 };
+
+// Toggle student active by teacher/formateur_principal (limited)
+const toggleStudentActiveForTeacher = async (req, res, next) => {
+  try {
+    const studentId = req.params.id;
+    const requesterId = req.user.id; // use id
+    const requesterRole = req.user.role;
+
+    const student = await User.findById(studentId);
+    if (!student) return createResponse(res, 404, 'Utilisateur non trouvé');
+
+    if (student.role !== 'etudiant') {
+      return createResponse(res, 400, 'Cette opération n\'est autorisée que pour les étudiants');
+    }
+
+    // If requester is formateur, ensure requester teaches a course where the student is enrolled
+    if (requesterRole === 'formateur') {
+      const teaches = await Course.exists({ teacher: requesterId, students: studentId });
+      if (!teaches) return createResponse(res, 403, 'Non autorisé pour cet étudiant');
+    }
+
+    // If requester is formateur_principal, ensure the student is in at least one course of the principal's department
+    if (requesterRole === 'formateur_principal') {
+      const inDept = await Course.exists({ department: req.user.department, students: studentId });
+      if (!inDept) return createResponse(res, 403, 'Non autorisé pour cet étudiant');
+    }
+
+    // Admin/rh bypass (they already have other route)
+    student.isActive = !student.isActive;
+    await student.save();
+
+    return createResponse(res, 200, `Utilisateur ${student.isActive ? 'activé' : 'désactivé'} avec succès`, { user: student });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Assign / Remove student to/from a course (teacher limited)
+const updateStudentCourseAssignment = async (req, res, next) => {
+  try {
+    const studentId = req.params.id;
+    const { action, courseId } = req.body;
+    const requesterId = req.user.id;
+    const requesterRole = req.user.role;
+
+    if (!['add', 'remove'].includes(action)) {
+      return createResponse(res, 400, 'Action invalide');
+    }
+    if (!courseId) {
+      return createResponse(res, 400, 'courseId requis');
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) return createResponse(res, 404, 'Cours introuvable');
+
+    // Ensure target is student
+    const student = await User.findById(studentId);
+    if (!student) return createResponse(res, 404, 'Utilisateur non trouvé');
+    if (student.role !== 'etudiant') return createResponse(res, 400, 'Cible doit être un étudiant');
+
+    // Authorization:
+    // - formateur can only modify students for his own courses (teacher === requesterId)
+    // - formateur_principal can modify students for courses in his department
+    if (requesterRole === 'formateur') {
+      if (!course.teacher || String(course.teacher) !== String(requesterId)) {
+        return createResponse(res, 403, 'Vous n\'êtes pas le formateur de ce cours');
+      }
+    } else if (requesterRole === 'formateur_principal') {
+      if (!req.user.department || String(course.department) !== String(req.user.department)) {
+        return createResponse(res, 403, 'Ce cours n\'appartient pas à votre département');
+      }
+    } else {
+      // other roles not allowed here (route restricts to formateurs)
+      return createResponse(res, 403, 'Non autorisé');
+    }
+
+    if (action === 'add') {
+      // add student to course
+      await Course.updateOne({ _id: courseId }, { $addToSet: { students: student._id } });
+    } else {
+      // remove student from course
+      await Course.updateOne({ _id: courseId }, { $pull: { students: student._id } });
+    }
+
+    const updatedCourse = await Course.findById(courseId).populate('students', 'name email');
+    return createResponse(res, 200, `Étudiant ${action === 'add' ? 'affecté' : 'désaffecté'} avec succès`, { course: updatedCourse });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUsers,
   getUserById,
@@ -216,10 +305,10 @@ module.exports = {
   updateUser,
   toggleUserActive,
   changePassword,
-  patchRole
-  ,
+  patchRole,
   getStudents,
-  getTeachers
+  getTeachers,
+  // new exports
+  toggleStudentActiveForTeacher,
+  updateStudentCourseAssignment
 };
-
-// Patch only role (admin/rh)
