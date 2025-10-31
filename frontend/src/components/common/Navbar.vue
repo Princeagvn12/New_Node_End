@@ -15,7 +15,11 @@ const logout = async () => {
   router.push({ name: 'Login' })
 }
 
-const isAdmin = computed(() => store.user?.role === 'admin' || store.user?.role === 'rh')
+// remplace isAdmin par canAccessUsers pour inclure les formateurs
+const canAccessUsers = computed(() => {
+  const role = store.user?.role
+  return !!role && ['admin', 'rh', 'formateur_principal', 'formateur'].includes(role)
+})
 </script>
 
 <template>
@@ -26,7 +30,7 @@ const isAdmin = computed(() => store.user?.role === 'admin' || store.user?.role 
         <router-link to="/departments" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Departments</router-link>
         <router-link to="/courses" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Courses</router-link>
         <router-link to="/hours" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Hours</router-link>
-        <router-link v-if="isAdmin" to="/users" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Users</router-link>
+        <router-link v-if="canAccessUsers" to="/users" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Étudiants</router-link>
       </div>
     </div>
 
