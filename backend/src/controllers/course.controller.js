@@ -11,9 +11,9 @@ const getCourses = async (req, res, next) => {
     if (req.user.role === 'formateur_principal') {
       query.department = req.user.department;
     } else if (req.user.role === 'formateur') {
-      query.teacher = req.user._id;
+      query.teacher = req.user.id; // use id
     } else if (req.user.role === 'etudiant') {
-      query.students = req.user._id;
+      query.students = req.user.id; // use id
     }
     
     const courses = await Course.find(query)
@@ -40,19 +40,26 @@ const getCourseById = async (req, res, next) => {
     }
     
     // Vérifier les permissions d'accès
-    if (req.user.role === 'formateur_principal' && 
-        course.department.toString() !== req.user.department.toString()) {
-      return createResponse(res, 403, 'Accès non autorisé à ce cours');
+    if (req.user.role === 'formateur_principal') {
+      const courseDeptId = course.department && (course.department._id || course.department).toString();
+      const userDeptId = req.user.department && req.user.department.toString();
+      if (!userDeptId || courseDeptId !== userDeptId) {
+        return createResponse(res, 403, 'Accès non autorisé à ce cours');
+      }
     }
     
-    if (req.user.role === 'formateur' && 
-        course.teacher.toString() !== req.user._id.toString()) {
-      return createResponse(res, 403, 'Accès non autorisé à ce cours');
+    if (req.user.role === 'formateur') {
+      const courseTeacherId = course.teacher ? String(course.teacher._id || course.teacher) : null;
+      if (!courseTeacherId || courseTeacherId !== String(req.user.id)) {
+        return createResponse(res, 403, 'Accès non autorisé à ce cours');
+      }
     }
     
-    if (req.user.role === 'etudiant' && 
-        !course.students.includes(req.user._id)) {
-      return createResponse(res, 403, 'Accès non autorisé à ce cours');
+    if (req.user.role === 'etudiant') {
+      const isStudent = Array.isArray(course.students) && course.students.some(s => String(s._id || s) === String(req.user.id));
+      if (!isStudent) {
+        return createResponse(res, 403, 'Accès non autorisé à ce cours');
+      }
     }
     
     return createResponse(res, 200, 'Cours récupéré avec succès', { course });
@@ -99,7 +106,7 @@ const createCourse = async (req, res, next) => {
 // Update course
 const updateCourse = async (req, res, next) => {
   try {
-  const { title, description, teacher, code, department, students } = req.body;
+    const { title, description, teacher, code, department, students } = req.body;
     const course = await Course.findById(req.params.id);
 
     if (!course) {
@@ -158,36 +165,36 @@ const updateCourseStudents = async (req, res, next) => {
       return createResponse(res, 404, 'Cours non trouvé');
     }
     
-      // Vérifier la permission: admin bypass; formateur_principal doit appartenir au département
-      if (req.user.role !== 'admin') {
-        const courseDeptId = course.department && (course.department._id || course.department).toString();
-        const userDeptId = req.user.department && req.user.department.toString();
-        if (!userDeptId || courseDeptId !== userDeptId) {
-          return createResponse(res, 403, 'Vous ne pouvez modifier que les cours de votre département');
-        }
+    // Vérifier la permission: admin bypass; formateur_principal doit appartenir au département
+    if (req.user.role !== 'admin') {
+      const courseDeptId = course.department && (course.department._id || course.department).toString();
+      const userDeptId = req.user.department && req.user.department.toString();
+      if (!userDeptId || courseDeptId !== userDeptId) {
+        return createResponse(res, 403, 'Vous ne pouvez modifier que les cours de votre département');
       }
+    }
 
-      // Validate studentIds: only keep users with role 'etudiant'
-      const validStudents = Array.isArray(studentIds) && studentIds.length > 0
-        ? (await User.find({ _id: { $in: studentIds }, role: 'etudiant' }).select('_id')).map(s => s._id)
-        : [];
+    // Validate studentIds: only keep users with role 'etudiant'
+    const validStudents = Array.isArray(studentIds) && studentIds.length > 0
+      ? (await User.find({ _id: { $in: studentIds }, role: 'etudiant' }).select('_id')).map(s => s._id)
+      : [];
 
-      if (action === 'add') {
-        if (validStudents.length > 0) {
-          await Course.updateOne({ _id: course._id }, { $addToSet: { students: { $each: validStudents } } });
-        }
-      } else if (action === 'remove') {
-        if (validStudents.length > 0) {
-          await Course.updateOne({ _id: course._id }, { $pull: { students: { $in: validStudents } } });
-        }
+    if (action === 'add') {
+      if (validStudents.length > 0) {
+        await Course.updateOne({ _id: course._id }, { $addToSet: { students: { $each: validStudents } } });
       }
+    } else if (action === 'remove') {
+      if (validStudents.length > 0) {
+        await Course.updateOne({ _id: course._id }, { $pull: { students: { $in: validStudents } } });
+      }
+    }
 
-      const updatedCourse = await Course.findById(course._id)
-        .populate({ path: 'department', select: 'name' })
-        .populate({ path: 'teacher', select: 'name email' })
-        .populate({ path: 'students', select: 'name email' });
+    const updatedCourse = await Course.findById(course._id)
+      .populate({ path: 'department', select: 'name' })
+      .populate({ path: 'teacher', select: 'name email' })
+      .populate({ path: 'students', select: 'name email' });
 
-      return createResponse(res, 200, 'Liste des étudiants mise à jour avec succès', { course: updatedCourse });
+    return createResponse(res, 200, 'Liste des étudiants mise à jour avec succès', { course: updatedCourse });
   } catch (error) {
     next(error);
   }
@@ -204,7 +211,6 @@ const deleteCourse = async (req, res, next) => {
     
     // Vérifier que le formateur principal appartient au département du cours
     if (req.user.role !== 'admin') {
-      // Vérifier que le formateur principal appartient au département du cours
       const courseDeptId = course.department && (course.department._id || course.department).toString()
       const userDeptId = req.user.department && req.user.department.toString()
       if (!userDeptId || courseDeptId !== userDeptId) {
@@ -226,11 +232,23 @@ const deleteCourse = async (req, res, next) => {
   }
 };
 
+// Get courses taught by the logged-in teacher
+const getMyCourses = async (req, res, next) => {
+  try {
+    const teacherId = req.user.id; // utilise `id`
+    const courses = await Course.find({ teacher: teacherId }).select('title code _id');
+    return res.json({ success: true, data: courses });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getCourses,
   getCourseById,
   createCourse,
   updateCourse,
   updateCourseStudents,
-  deleteCourse
+  deleteCourse,
+  getMyCourses
 };

@@ -10,6 +10,8 @@ const courseController = require('../controllers/course.controller');
 // All course routes require authentication (controller logic relies on req.user)
 router.use(auth.authenticate);
 
+// Add explicit /me route before /:id to avoid param clash
+router.get('/me', courseController.getMyCourses);
 router.get('/', courseController.getCourses);
 router.get('/:id', courseController.getCourseById);
 
