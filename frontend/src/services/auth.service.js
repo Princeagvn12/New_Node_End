@@ -22,4 +22,8 @@ const refresh = async () => {
   return res.data
 }
 
-export default { login, logout, me, refresh }
+// password reset
+const requestPasswordReset = (email) => api.post('/auth/forgot', { email }).then(res => res.data)
+const resetPassword = (token, password) => api.post('/auth/reset', { token, password }).then(res => res.data)
+
+export default { login, logout, me, refresh,requestPasswordReset,resetPassword }

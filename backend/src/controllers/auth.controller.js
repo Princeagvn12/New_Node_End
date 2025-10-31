@@ -1,4 +1,8 @@
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const { sendMail } = require('../config/mail');
 const { User } = require("../models/User");
+const { createResponse } = require('../utils/response');
 const {
   generateAccessToken,
   generateRefreshToken,
@@ -178,9 +182,88 @@ async function me(req, res, next) {
   }
 }
 
+/**
+ * Request password reset - generate token and send email
+ * POST /api/auth/forgot
+ * body: { email }
+ */
+async function forgotPassword(req, res, next) {
+  try {
+    const { email } = req.body;
+    if (!email) return createResponse(res, 400, 'Email requis');
+
+    const user = await User.findOne({ email });
+    // Never reveal whether user exists — respond with success message for security
+    if (!user) {
+      return createResponse(res, 200, "Un email de réinitialisation a été envoyé si le compte existe");
+    }
+
+    // generate token (plain for email, store hashed)
+    const token = crypto.randomBytes(20).toString('hex');
+    const hashed = crypto.createHash('sha256').update(token).digest('hex');
+
+    user.resetPasswordToken = hashed;
+    user.resetPasswordExpires = Date.now() + 3600 * 1000; // 1 hour
+    await user.save({ validateBeforeSave: false });
+
+    // build reset URL (frontend handles the token)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetUrl = `${frontendUrl}/reset-password?token=${token}&id=${user._id}`;
+
+    const html = `<p>Vous avez demandé une réinitialisation de mot de passe. Utilisez le lien ci‑dessous (valable 1h) :</p>
+                  <p><a href="${resetUrl}">${resetUrl}</a></p>
+                  <p>Si vous n'avez pas demandé cette opération, ignorez ce message.</p>`;
+
+    await sendMail({
+      to: user.email,
+      subject: 'Réinitialisation du mot de passe',
+      html,
+      text: `Réinitialisation: ${resetUrl}`
+    });
+
+    return createResponse(res, 200, "Un email de réinitialisation a été envoyé si le compte existe");
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Reset password using token
+ * POST /api/auth/reset
+ * body: { token, password }
+ */
+async function resetPassword(req, res, next) {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return createResponse(res, 400, 'Token et nouveau mot de passe requis');
+
+    const hashed = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashed,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) return createResponse(res, 400, 'Token invalide ou expiré');
+
+    // hash new password and save
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return createResponse(res, 200, 'Mot de passe réinitialisé avec succès');
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   login,
   refresh,
   logout,
   me,
+  forgotPassword,
+  resetPassword
 };

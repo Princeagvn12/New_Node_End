@@ -253,13 +253,13 @@ const updateStudentCourseAssignment = async (req, res, next) => {
     const requesterRole = req.user.role;
 
     if (!['add', 'remove'].includes(action)) {
-      return createResponse(res, 400, 'Action invalide');
+      return createResponse(res, 400, 'Action invalide (add|remove attendu)');
     }
     if (!courseId) {
       return createResponse(res, 400, 'courseId requis');
     }
 
-    const course = await Course.findById(courseId);
+    const course = await Course.findById(courseId).select('teacher department students');
     if (!course) return createResponse(res, 404, 'Cours introuvable');
 
     // Ensure target is student
@@ -279,20 +279,27 @@ const updateStudentCourseAssignment = async (req, res, next) => {
         return createResponse(res, 403, 'Ce cours n\'appartient pas à votre département');
       }
     } else {
-      // other roles not allowed here (route restricts to formateurs)
       return createResponse(res, 403, 'Non autorisé');
     }
 
-    if (action === 'add') {
-      // add student to course
-      await Course.updateOne({ _id: courseId }, { $addToSet: { students: student._id } });
-    } else {
-      // remove student from course
-      await Course.updateOne({ _id: courseId }, { $pull: { students: student._id } });
-    }
+    const isStudentInCourse = Array.isArray(course.students) && course.students.some(s => String(s._id || s) === String(studentId));
 
-    const updatedCourse = await Course.findById(courseId).populate('students', 'name email');
-    return createResponse(res, 200, `Étudiant ${action === 'add' ? 'affecté' : 'désaffecté'} avec succès`, { course: updatedCourse });
+    if (action === 'add') {
+      if (isStudentInCourse) {
+        return createResponse(res, 400, 'L\'étudiant est déjà affecté à ce cours');
+      }
+      await Course.updateOne({ _id: courseId }, { $addToSet: { students: student._id } });
+      const updatedCourse = await Course.findById(courseId).populate('students', 'name email');
+      return createResponse(res, 200, 'Étudiant affecté avec succès', { course: updatedCourse });
+    } else {
+      // remove
+      if (!isStudentInCourse) {
+        return createResponse(res, 400, 'L\'étudiant n\'est pas affecté à ce cours');
+      }
+      await Course.updateOne({ _id: courseId }, { $pull: { students: student._id } });
+      const updatedCourse = await Course.findById(courseId).populate('students', 'name email');
+      return createResponse(res, 200, 'Étudiant désaffecté avec succès', { course: updatedCourse });
+    }
   } catch (error) {
     next(error);
   }
