@@ -14,6 +14,8 @@ const { loginSchema } = require('../validations/auth.schema');
 // Public routes - no authentication required
 router.post('/login', validate(loginSchema), authController.login);
 router.post('/refresh', authController.refresh);
+router.post('/forgot', authController.forgotPassword);
+router.post('/reset', authController.resetPassword);
 
 // Protected routes - require authentication
 router.use(authenticate);

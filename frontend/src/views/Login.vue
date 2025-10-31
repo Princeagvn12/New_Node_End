@@ -77,10 +77,14 @@ const handleLogin = async () => {
         </button>
       </form>
 
-      <div class="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
+      <div class="mt-4 text-center">
+        <router-link to="/forgot-password" class="text-sm text-blue-600 hover:underline">Mot de passe oublié ?</router-link>
+      </div>
+
+      <!-- <div class="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
         <p>Test Credentials:</p>
         <p class="font-mono mt-1">admin@uni / password</p>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>

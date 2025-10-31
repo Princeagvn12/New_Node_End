@@ -56,6 +56,16 @@ const routes = [
       requiresAuth: true,
       allowedRoles: ['admin', 'rh', 'formateur_principal', 'formateur', 'etudiant']
     }
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('../views/ForgotPassword.vue')
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: () => import('../views/ResetPassword.vue')
   }
 ]
 

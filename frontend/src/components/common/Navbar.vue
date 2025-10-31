@@ -30,7 +30,7 @@ const canAccessUsers = computed(() => {
         <router-link to="/departments" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Departments</router-link>
         <router-link to="/courses" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Courses</router-link>
         <router-link to="/hours" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Hours</router-link>
-        <router-link v-if="canAccessUsers" to="/users" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Étudiants</router-link>
+        <router-link v-if="canAccessUsers" to="/users" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Users</router-link>
       </div>
     </div>
 

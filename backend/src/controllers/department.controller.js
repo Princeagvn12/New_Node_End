@@ -1,5 +1,6 @@
 const Department = require('../models/Department');
 const { createResponse } = require('../utils/response');
+const {User} = require('../models/User');
 
 // Get all departments
 const getDepartments = async (req, res, next) => {
@@ -95,13 +96,12 @@ const deleteDepartment = async (req, res, next) => {
     }
     
     // Vérifier s'il y a des utilisateurs dans ce département
-    const User = require('../models/User');
-    const hasUsers = await User.exists({ department: department._id });
+    const hasUsers = await User.findOne({ department: department._id });
     if (hasUsers) {
       return createResponse(res, 400, 'Le département ne peut pas être supprimé car il contient des utilisateurs');
     }
     
-    await department.remove();
+    await department.deleteOne();
     return createResponse(res, 200, 'Département supprimé avec succès');
   } catch (error) {
     next(error);
