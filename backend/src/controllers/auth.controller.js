@@ -207,22 +207,35 @@ async function forgotPassword(req, res, next) {
     await user.save({ validateBeforeSave: false });
 
     // build reset URL (frontend handles the token)
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetUrl = `${frontendUrl}/reset-password?token=${token}&id=${user._id}`;
 
     const html = `<p>Vous avez demandé une réinitialisation de mot de passe. Utilisez le lien ci‑dessous (valable 1h) :</p>
                   <p><a href="${resetUrl}">${resetUrl}</a></p>
                   <p>Si vous n'avez pas demandé cette opération, ignorez ce message.</p>`;
 
-    await sendMail({
+    const mailInfo = await sendMail({
       to: user.email,
       subject: 'Réinitialisation du mot de passe',
       html,
       text: `Réinitialisation: ${resetUrl}`
     });
 
+    // Log mail sending details to help debugging (messageId and Ethereal preview URL when available)
+    try {
+      console.log('Reset password email sent info:', mailInfo && (mailInfo.messageId || mailInfo.response) ? (mailInfo.messageId || mailInfo.response) : mailInfo);
+      const nodemailer = require('nodemailer');
+      if (nodemailer.getTestMessageUrl) {
+        const preview = nodemailer.getTestMessageUrl(mailInfo);
+        if (preview) console.log('Ethereal preview URL:', preview);
+      }
+    } catch (logErr) {
+      console.warn('Could not log mail preview URL', logErr && logErr.message ? logErr.message : logErr);
+    }
+
     return createResponse(res, 200, "Un email de réinitialisation a été envoyé si le compte existe");
   } catch (err) {
+    console.log("ereeeeeee");
     next(err);
   }
 }

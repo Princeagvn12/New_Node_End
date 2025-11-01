@@ -1,14 +1,16 @@
-const { transporter } = require('./src/config/mail');
+const { sendMail, transporterPromise } = require('./src/config/mail');
 
 (async () => {
   try {
-    const info = await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
-      to: 'ton.email@exemple.com',
+    // Ensure transporter is ready
+    await transporterPromise;
+    const info = await sendMail({
+      from: process.env.MAIL_FROM || process.env.SMTP_USER || 'no-reply@example.com',
+      to: process.env.TEST_TO || 'ton.email@exemple.com',
       subject: 'Test SMTP',
-      text: 'Test d\'envoi SMTP'
+      text: "Test d'envoi SMTP"
     });
-    console.log('Test email sent:', info.messageId);
+    console.log('Test email sent:', info.messageId || info.response || info);
   } catch (err) {
     console.error('Test email failed:', err && err.message ? err.message : err);
   }

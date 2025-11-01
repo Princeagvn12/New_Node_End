@@ -14,7 +14,9 @@ const submit = async () => {
   try {
     await authService.requestPasswordReset(email.value)
     showSuccess('Si le compte existe, un email a été envoyé')
-    router.push({ name: 'Login' })
+    setTimeout(() => {
+      router.push({ name: 'ResetPassword' })
+    }, 4000)
   } catch (e) {
     showError(e?.response?.data?.message || 'Erreur')
   } finally {
