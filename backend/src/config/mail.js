@@ -4,6 +4,8 @@ const nodemailer = require('nodemailer');
 async function createTransporter() {
   // Use explicit SMTP config if provided
   const smtpHost = process.env.SMTP_HOST;
+  console.log(smtpHost);
+  
   if (smtpHost) {
     const transporter = nodemailer.createTransport({
       host: smtpHost,
@@ -67,4 +69,4 @@ async function sendMail({ to, subject, html, text }) {
   }
 }
 
-module.exports = { sendMail, transporter: transporterPromise };
+module.exports = { sendMail, transporterPromise };
