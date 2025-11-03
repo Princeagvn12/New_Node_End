@@ -94,9 +94,9 @@
     </div>
 
     <!-- Tableau détaillé -->
-    <div class="glass-card overflow-hidden">
+    <!-- <div class="glass-card overflow-hidden">
       <Table :columns="columns" :data="filteredEntries" :loading="loading" class="w-full" />
-    </div>
+    </div> -->
   </div>
 </template>
 
@@ -119,6 +119,71 @@ const loading = ref(false)
 const entries = ref([])
 const courses = ref([])
 const selectedCourseId = ref('')
+const dateRange = ref({ start: '', end: '' })
+
+const normalizeCourses = (raw) => {
+  if (!Array.isArray(raw)) return []
+  return raw.map(c => {
+    if (!c) return null
+    if (typeof c === 'string') return { _id: String(c), title: String(c) }
+    const id = String(c._id || c.id || '')
+    return {
+      _id: id,
+      title: c.title || c.name || c.code || 'Cours',
+      description: c.description || '',
+      teacher: c.teacher || null,
+      students: Array.isArray(c.students) ? c.students.map(s => (s && (s._id || s)) || s).map(String) : []
+    }
+  }).filter(Boolean)
+}
+
+const normalizeEntries = (raw) => {
+  if (!Array.isArray(raw)) return []
+  return raw.map(e => {
+    const copy = { ...e }
+    // unwrap hour entry shapes (axios response / backend createResponse)
+    // possible shapes: { _id, course: ObjectId|{_id,title}, hours, date, description, teacher }
+    // or the whole axios response object => handled upstream
+    // normalize course to object with _id,title
+    if (copy.course && typeof copy.course === 'object') {
+      copy.course = {
+        _id: String(copy.course._id || copy.course.id || ''),
+        title: copy.course.title || copy.course.name || ''
+      }
+    } else if (copy.course) {
+      copy.course = { _id: String(copy.course), title: '' }
+    } else {
+      copy.course = { _id: '', title: '' }
+    }
+    copy._id = String(copy._id || copy.id || '')
+    copy.hours = Number(copy.hours || 0)
+    // ensure date is a proper ISO string / Date for filtering & display
+    copy.date = copy.date ? new Date(copy.date).toISOString() : new Date().toISOString()
+    return copy
+  })
+}
+
+// small helper to unwrap axios/backend shapes
+const unwrapPayload = (res) => {
+  if (!res) return []
+  if (Array.isArray(res)) return res
+  if (res.data && typeof res.data === 'object') {
+    // backend createResponse -> res.data.data.courses or res.data.data.hours
+    if (res.data.data && Array.isArray(res.data.data.courses)) return res.data.data.courses
+    if (res.data.data && Array.isArray(res.data.data.hours)) return res.data.data.hours
+    // some services return res.data.courses / res.data.hours
+    if (Array.isArray(res.data.courses)) return res.data.courses
+    if (Array.isArray(res.data.hours)) return res.data.hours
+    // interceptor already unwrapped -> res.data === array
+    if (Array.isArray(res.data)) return res.data
+  }
+  // sometimes service returns { success:true, data: { hours: [...] } }
+  if (res.success && res.data) {
+    if (Array.isArray(res.data.courses)) return res.data.courses
+    if (Array.isArray(res.data.hours)) return res.data.hours
+  }
+  return []
+}
 
 // Export PDF function
 const exportToPDF = async () => {
@@ -168,32 +233,36 @@ const exportToPDF = async () => {
 const hoursByCourse = computed(() => {
   const stats = {}
   entries.value.forEach(entry => {
-    const courseId = entry.course._id || entry.course
+    const courseId = String(entry.course && (entry.course._id || entry.course) || '')
     if (!stats[courseId]) {
-      const course = courses.value.find(c => c._id === courseId)
+      const course = courses.value.find(c => String(c._id) === courseId)
       stats[courseId] = {
-        courseTitle: course?.title || 'Unknown Course',
+        courseTitle: course?.title || (entry.course && entry.course.title) || 'Unknown Course',
         totalHours: 0,
         entries: []
       }
     }
-    stats[courseId].totalHours += entry.hours
+    stats[courseId].totalHours += Number(entry.hours || 0)
     stats[courseId].entries.push(entry)
   })
   return stats
 })
 
 // Chart data
-const chartData = computed(() => ({
-  labels: Object.values(hoursByCourse.value).map(c => c.courseTitle),
-  datasets: [{
-    label: 'Heures par cours',
-    data: Object.values(hoursByCourse.value).map(c => c.totalHours),
-    backgroundColor: 'rgba(75, 192, 192, 0.5)',
-    borderColor: 'rgb(75, 192, 192)',
-    borderWidth: 1
-  }]
-}))
+const chartData = computed(() => {
+  const labels = Object.values(hoursByCourse.value).map(c => c.courseTitle)
+  const data = Object.values(hoursByCourse.value).map(c => c.totalHours)
+  return {
+    labels: labels || [],
+    datasets: [{
+      label: 'Heures par cours',
+      data: data || [],
+      backgroundColor: Array(labels.length).fill('rgba(75, 192, 192, 0.5)'),
+      borderColor: Array(labels.length).fill('rgb(75, 192, 192)'),
+      borderWidth: 1
+    }]
+  }
+})
 
 const chartOptions = {
   responsive: true,
@@ -209,19 +278,65 @@ const chartOptions = {
   }
 }
 
-const pieOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'right',
-    },
-    title: {
-      display: true,
-      text: 'Répartition des heures par cours (graphique circulaire)'
-    }
+// <-- Ajout : pieChartData (assure que Pie reçoit toujours un objet) -->
+const pieChartData = computed(() => {
+  const labels = Object.values(hoursByCourse.value).map(c => c.courseTitle)
+  const data = Object.values(hoursByCourse.value).map(c => c.totalHours)
+  return {
+    labels: labels || [],
+    datasets: [{
+      label: 'Répartition heures',
+      data: data || [],
+      backgroundColor: [
+        'rgba(54, 162, 235, 0.6)',
+        'rgba(255, 99, 132, 0.6)',
+        'rgba(255, 206, 86, 0.6)',
+        'rgba(75, 192, 192, 0.6)',
+        'rgba(153, 102, 255, 0.6)',
+        'rgba(255, 159, 64, 0.6)'
+      ].slice(0, Math.max(1, labels.length)),
+      borderColor: [
+        'rgb(54, 162, 235)',
+        'rgb(255, 99, 132)',
+        'rgb(255, 206, 86)',
+        'rgb(75, 192, 192)',
+        'rgb(153, 102, 255)',
+        'rgb(255, 159, 64)'
+      ].slice(0, Math.max(1, labels.length)),
+      borderWidth: 1
+    }]
   }
-}
+})
+
+const filteredEntries = computed(() => {
+  let filtered = (entries.value || []).slice()
+
+  if (dateRange.value.start) {
+    const start = new Date(dateRange.value.start)
+    filtered = filtered.filter(entry => new Date(entry.date) >= start)
+  }
+  if (dateRange.value.end) {
+    const end = new Date(dateRange.value.end)
+    filtered = filtered.filter(entry => new Date(entry.date) <= end)
+  }
+  if (selectedCourseId.value) {
+    filtered = filtered.filter(entry => {
+      const courseId = (entry.course && (entry.course._id || entry.course)) || ''
+      return String(courseId) === String(selectedCourseId.value)
+    })
+  }
+
+  return filtered
+})
+
+const totalHours = computed(() => {
+  // sum totals from hoursByCourse (fallback to entries if empty)
+  const byCourse = Object.values(hoursByCourse.value || {})
+  if (byCourse.length) {
+    return byCourse.reduce((s, c) => s + Number(c.totalHours || 0), 0)
+  }
+  return (entries.value || []).reduce((s, e) => s + Number(e.hours || 0), 0)
+})
 
 // Table columns configuration
 const columns = [
@@ -251,76 +366,74 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const [hoursRes, coursesRes] = await Promise.all([
-      hourService.getMy(),
-      courseService.getAll()
+    // Récupère heures et cours (service unwrap déjà tolérant)
+    const [rawHoursRes, rawCoursesRes] = await Promise.all([
+      hourService.getMy().catch(() => []),
+      courseService.getAll().catch(() => [])
     ])
 
-    courses.value = coursesRes
-    entries.value = hoursRes
+    const rawHours = unwrapPayload(rawHoursRes)
+    const rawCourses = unwrapPayload(rawCoursesRes)
+
+    // Normalise les cours reçus
+    let normalizedCourses = normalizeCourses(rawCourses)
+
+    // Fallback : si aucun cours retourné (ou liste incomplète), refetch full list
+    if (!normalizedCourses.length) {
+      const fallbackRes = await courseService.getAll().catch(() => [])
+      normalizedCourses = normalizeCourses(unwrapPayload(fallbackRes))
+    }
+
+    // Normalise les entrées d'heures
+    const allEntries = normalizeEntries(rawHours)
+
+    // Récupère les ids de cours référencés par les entrées d'heures
+    const courseIdsFromEntries = new Set(allEntries.map(e => String((e.course && (e.course._id || e.course)) || '')).filter(Boolean))
+
+    // Pour chaque id manquant, tente de récupérer le cours via getById (pour assurer présence dans la liste)
+    const missingIds = [...courseIdsFromEntries].filter(id => !normalizedCourses.some(c => String(c._id) === id))
+    if (missingIds.length) {
+      const fetched = await Promise.all(missingIds.map(id => courseService.getById(id).catch(() => null)))
+      const fetchedNorm = normalizeCourses(fetched.filter(Boolean))
+      normalizedCourses = normalizedCourses.concat(fetchedNorm)
+    }
+
+    // Si l'utilisateur est étudiant, filtre côté client (sécurité/fallback)
+    if (userStore.user?.role === 'etudiant') {
+      const uid = String(userStore.user?._id || userStore.user?.id || '')
+      normalizedCourses = normalizedCourses.filter(c =>
+        Array.isArray(c.students) && c.students.some(s => String(s) === uid)
+      )
+    }
+
+    courses.value = normalizedCourses
+
+    // Garde seulement les entrées liées aux cours qu'on expose à l'étudiant
+    const validCourseIds = new Set(courses.value.map(c => String(c._id)))
+    entries.value = allEntries.filter(e => {
+      const cid = String((e.course && (e.course._id || e.course)) || '')
+      return validCourseIds.has(cid)
+    })
+
+    // Assure que tous les cours affectés apparaissent dans le graphe même s'il n'y a pas d'heures (ajoute des entrées 0h)
+    const existingCourseIds = new Set(entries.value.map(e => String((e.course && (e.course._id || e.course)) || '')))
+    courses.value.forEach(c => {
+      if (!existingCourseIds.has(String(c._id))) {
+        entries.value.push({
+          _id: `zero-${c._id}`,
+          course: { _id: String(c._id), title: c.title },
+          hours: 0,
+          date: new Date().toISOString(),
+          description: ''
+        })
+      }
+    })
   } catch (e) {
     console.error('Failed to load student hours:', e)
   } finally {
     loading.value = false
   }
 }
-
-// Filter entries by date range
-const dateRange = ref({
-  start: '',
-  end: ''
-})
-
-const filteredEntries = computed(() => {
-  let filtered = [...entries.value]
-
-  if (dateRange.value.start) {
-    filtered = filtered.filter(entry =>
-      new Date(entry.date) >= new Date(dateRange.value.start)
-    )
-  }
-
-  if (dateRange.value.end) {
-    filtered = filtered.filter(entry =>
-      new Date(entry.date) <= new Date(dateRange.value.end)
-    )
-  }
-
-  if (selectedCourseId.value) {
-    filtered = filtered.filter(entry =>
-      (entry.course._id || entry.course) === selectedCourseId.value
-    )
-  }
-
-  return filtered
-})
-
-// Pie chart data
-const pieChartData = computed(() => ({
-  labels: Object.values(hoursByCourse.value).map(c => c.courseTitle),
-  datasets: [{
-    data: Object.values(hoursByCourse.value).map(c => c.totalHours),
-    backgroundColor: [
-      'rgba(255, 99, 132, 0.5)',
-      'rgba(54, 162, 235, 0.5)',
-      'rgba(255, 206, 86, 0.5)',
-      'rgba(75, 192, 192, 0.5)',
-      'rgba(153, 102, 255, 0.5)',
-    ],
-    borderColor: [
-      'rgb(255, 99, 132)',
-      'rgb(54, 162, 235)',
-      'rgb(255, 206, 86)',
-      'rgb(75, 192, 192)',
-      'rgb(153, 102, 255)',
-    ],
-    borderWidth: 1
-  }]
-}))
-
-const totalHours = computed(() =>
-  filteredEntries.value.reduce((sum, entry) => sum + entry.hours, 0)
-)
 
 onMounted(load)
 </script>
