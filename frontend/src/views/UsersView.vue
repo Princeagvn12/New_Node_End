@@ -37,6 +37,10 @@ const columns = [
 ]
 const departments = ref([])
 const allCourses = ref([])
+const assignDialog = ref({ show: false, student: null, choices: [], selected: '' })
+
+// helper to normalize id values (accepts object with _id or id, or raw id)
+const idOf = (v) => (v && (v._id || v.id || v))
 
 const load = async () => {
   loading.value = true
@@ -139,12 +143,12 @@ const toggleActivate = async (row) => {
 
 const unassignStudentFromCourse = async (row) => {
   // Build list of courses where this student is enrolled and that the teacher can manage
-  const studentCourses = allCourses.value.filter(c => Array.isArray(c.students) && c.students.some(s => String(s._id || s) === String(row._id)))
+  const studentCourses = allCourses.value.filter(c => Array.isArray(c.students) && c.students.some(s => String(idOf(s)) === String(idOf(row._id))))
   const manageable = studentCourses.filter(c => {
     if (userStore.user?.role === 'formateur') {
-      return String(c.teacher?._id || c.teacher) === String(userStore.user?.id)
+      return String(idOf(c.teacher)) === String(idOf(userStore.user?._id))
     } else if (userStore.user?.role === 'formateur_principal') {
-      return String(c.department?._id || c.department) === String(userStore.user?.department)
+      return String(idOf(c.department)) === String(idOf(userStore.user?.department))
     }
     return false
   })
@@ -154,13 +158,22 @@ const unassignStudentFromCourse = async (row) => {
     return
   }
 
-  // If multiple, ask to choose; for brevity use prompt
-  const choice = manageable.length === 1 ? manageable[0]._id : prompt('Enter courseId to unassign:\n' + manageable.map(c=>`${c._id} : ${c.title}`).join('\n'))
-  if (!choice) return
+  // Prefill assignDialog to allow selection of which course to remove
+  assignDialog.value = {
+    show: true,
+    student: row,
+    choices: manageable,
+    selected: manageable.length === 1 ? String(idOf(manageable[0]._id)) : String(idOf(manageable[0]._id))
+  }
+}
 
+const confirmUnassign = async () => {
+  const dlg = assignDialog.value
+  if (!dlg.student || !dlg.selected) return
   try {
-    await userService.teacherUpdateStudentCourse(row._id, { action: 'remove', courseId: choice })
-    showSuccess('Étudiant désaffecté du cours')
+    await userService.teacherUpdateStudentCourse(dlg.student._id, { action: 'remove', courseId: dlg.selected })
+    showSuccess("Étudiant désaffecté du cours")
+    assignDialog.value = { show: false, student: null, choices: [], selected: '' }
     await load()
   } catch (e) {
     console.error(e)
@@ -168,10 +181,73 @@ const unassignStudentFromCourse = async (row) => {
   }
 }
 
+const openAssignDialog = (row) => {
+  // Build list of courses that the teacher/principal can manage
+  const manageable = allCourses.value.filter(c => {
+    if (userStore.user?.role === 'formateur') {
+      return String(idOf(c.teacher)) === String(idOf(userStore.user?._id))
+    } else if (userStore.user?.role === 'formateur_principal') {
+      return String(idOf(c.department)) === String(idOf(userStore.user?.department))
+    }
+    return false
+  })
+
+  // filter out courses where student is already enrolled
+  const choices = manageable.filter(c => !(Array.isArray(c.students) && c.students.some(s => String(idOf(s)) === String(idOf(row._id)))))
+  if (choices.length === 0) {
+    showError('Aucun cours disponible pour affectation pour cet étudiant')
+    return
+  }
+
+  assignDialog.value = { show: true, student: row, choices, selected: String(idOf(choices[0]._id)) }
+}
+
+const confirmAssign = async () => {
+  const dlg = assignDialog.value
+  if (!dlg.student || !dlg.selected) return
+  try {
+    await userService.teacherUpdateStudentCourse(dlg.student._id, { action: 'add', courseId: dlg.selected })
+    showSuccess("Étudiant affecté au cours")
+    assignDialog.value = { show: false, student: null, choices: [], selected: '' }
+    await load()
+  } catch (e) {
+    console.error(e)
+    showError(e?.response?.data?.message || 'Failed to assign student')
+  }
+}
+
 const editUser = (row) => {
   editingUser.value = row
   form.value = { name: row.name, email: row.email, password: '', role: row.role, department: row.department?._id || row.department || '' }
   showCreate.value = true
+}
+
+const changeRole = async (row, newRole) => {
+  if (!newRole || newRole === row.role) return
+  confirmAction(`Change role of ${row.name} to ${newRole}?`, async () => {
+    try {
+      await userService.patchRole(row._id, newRole)
+      showSuccess('Role updated')
+      await load()
+    } catch (e) {
+      console.error(e)
+      showError(e?.response?.data?.message || 'Failed to change role')
+    }
+  })
+}
+
+const deleteUser = async (row) => {
+  if (row._id === userStore.user?._id) { showError("You cannot delete your own account"); return }
+  confirmAction(`Delete user ${row.name}?`, async () => {
+    try {
+      await userService.remove(row._id)
+      showSuccess('User deleted')
+      await load()
+    } catch (e) {
+      console.error(e)
+      showError(e?.response?.data?.message || 'Failed to delete user')
+    }
+  })
 }
 
 onMounted(async () => { await load(); await loadDepartments() })
@@ -190,6 +266,25 @@ onMounted(async () => { await load(); await loadDepartments() })
           <button @click="executeConfirmedAction" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
             Confirm
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assign/Unassign Dialog -->
+    <div v-if="assignDialog.show" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+        <h3 class="text-lg font-semibold mb-3">Affectation / Désaffectation</h3>
+        <p class="mb-3">Étudiant: <strong>{{ assignDialog.student?.name }}</strong></p>
+        <div>
+          <label class="block text-sm mb-1">Choisir un cours</label>
+          <select v-model="assignDialog.selected" class="w-full p-2 rounded border">
+            <option v-for="c in assignDialog.choices" :key="c._id" :value="String(c._id)">{{ c.title }}</option>
+          </select>
+        </div>
+        <div class="flex justify-end gap-3 mt-4">
+          <button @click="assignDialog.show = false" class="px-4 py-2 bg-gray-300 rounded">Cancel</button>
+          <button @click="confirmAssign" class="px-4 py-2 bg-blue-500 text-white rounded">Assign</button>
+          <button @click="confirmUnassign" class="px-4 py-2 bg-red-500 text-white rounded">Unassign</button>
         </div>
       </div>
     </div>
@@ -241,7 +336,7 @@ onMounted(async () => { await load(); await loadDepartments() })
           <div v-if="canManageUsers" class="flex items-center gap-2">
             <button @click="editUser(row)" class="px-2 py-1 text-sm rounded bg-slate-200 hover:bg-slate-300">Edit</button>
             <button @click="toggleActivate(row)" class="px-2 py-1 text-sm rounded bg-amber-100 hover:bg-amber-200">
-              {{ row.isActive ? 'Deactivate' : 'Activate' }}
+              {{ row.isActive ? 'Desactivate' : 'Activate' }}
             </button>
             <select :value="row.role" @change.prevent="changeRole(row, $event.target.value)" class="p-1 rounded border text-sm" :disabled="row._id === userStore.user?._id">
               <option value="admin">admin</option>
@@ -253,6 +348,7 @@ onMounted(async () => { await load(); await loadDepartments() })
             <button @click="deleteUser(row)" class="px-2 py-1 text-sm rounded bg-red-100 hover:bg-red-200">Delete</button>
           </div>
           <div v-else-if="isTeacherView" class="flex items-center gap-2">
+            <button @click="openAssignDialog(row)" class="px-2 py-1 text-sm rounded bg-green-100 hover:bg-green-200">Affecter</button>
             <button @click="unassignStudentFromCourse(row)" class="px-2 py-1 text-sm rounded bg-amber-100 hover:bg-amber-200">Désaffecter</button>
             <button @click="toggleActivate(row)" class="px-2 py-1 text-sm rounded bg-red-100 hover:bg-red-200">
               {{ row.isActive ? 'Désactiver' : 'Activer' }}
