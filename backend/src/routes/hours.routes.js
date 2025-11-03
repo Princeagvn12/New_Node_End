@@ -12,15 +12,15 @@ const hourController = require('../controllers/hour.controller');
 router.use(auth.authenticate);
 
 // Anyone authenticated can list their hours
-router.get('/me', hourController.getMyHours);
+router.get('/me', allowRoles(['formateur_principal', 'formateur', 'etudiant']), hourController.getMyHours);
 
-// Only admin, rh, formateur_principal, formateur can create
-router.post('/', allowRoles(['admin', 'rh', 'formateur_principal', 'formateur']), validate(createHourSchema), hourController.createHourEntry);
+// Only formateur_principal and formateur can create hours (RH / admin removed)
+router.post('/', allowRoles(['formateur_principal', 'formateur']), validate(createHourSchema), hourController.createHourEntry);
 
-// Update: only admin/rh/formateurs (formateurs limited by controller to own entries)
-router.patch('/:id', allowRoles(['admin', 'rh', 'formateur_principal', 'formateur']), validate(updateHourSchema), hourController.updateHourEntry);
+// Update: only formateur_principal and formateur (controller still checks ownership)
+router.patch('/:id', allowRoles(['formateur_principal', 'formateur']), validate(updateHourSchema), hourController.updateHourEntry);
 
-// Delete: only admin/rh/formateurs
-router.delete('/:id', allowRoles(['admin', 'rh', 'formateur_principal', 'formateur']), hourController.deleteHourEntry);
+// Delete: only formateur_principal and formateur
+router.delete('/:id', allowRoles(['formateur_principal', 'formateur']), hourController.deleteHourEntry);
 
 module.exports = router;

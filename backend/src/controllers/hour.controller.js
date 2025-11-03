@@ -5,6 +5,10 @@ const { createResponse } = require('../utils/response');
 // Get hours for current user
 const getMyHours = async (req, res, next) => {
   try {
+    // Défense serveur : admins et RH ne doivent pas consulter les heures via /hours/me
+    if (['admin', 'rh'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: "Accès non autorisé" });
+    }
     let query = {};
     const userId = req.user.id;
 

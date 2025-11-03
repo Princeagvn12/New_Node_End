@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import hourService from '../services/hour.service'
 import courseService from '../services/course.service'
 import StudentHoursView from '../components/student/StudentHoursView.vue'
@@ -9,9 +10,12 @@ import { showSuccess, showError } from '../utils/toast'
 import FormField from '../components/common/FormField.vue'
 import Table from '../components/common/Table.vue'
 
+const router = useRouter()
 const userStore = useUserStore()
 const { confirm } = useConfirmDialog()
 const isStudent = computed(() => userStore.user?.role === 'etudiant')
+const isTeacher = computed(() => ['formateur', 'formateur_principal'].includes(userStore.user?.role))
+const isAdmin = computed(() => userStore.user?.role === 'admin')
 
 const entries = ref([])
 const loading = ref(false)
@@ -25,7 +29,8 @@ const form = ref({
 const editingEntry = ref(null)
 
 const canManageHours = computed(() => 
-  ['admin', 'formateur_principal', 'formateur'].includes(userStore.user?.role)
+  // remove 'admin' here: admins shouldn't create/edit hours
+  ['formateur_principal', 'formateur'].includes(userStore.user?.role)
 )
 
 const columns = [
@@ -148,7 +153,15 @@ const removeEntry = async (id) => {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  // Redirect admin away from this view
+  if (isAdmin.value) {
+    // Adjust route as needed — typically dashboard is '/dashboard'
+    router.replace('/dashboard').catch(() => {})
+    return
+  }
+  await load()
+})
 </script>
 
 <template>
@@ -251,5 +264,16 @@ onMounted(load)
         </Table>
       </div>
     </div>
+
+    <!-- Wrap teacher-only UI with v-if -->
+    <div v-if="isTeacher">
+      <!-- zone de saisie / édition / suppression des heures (le formulaire et les actions) -->
+      <!-- ...existing teacher hour form / action buttons ... -->
+    </div>
+
+    <!-- Always show student view / listing -->
+    <!-- <div>
+      <StudentHoursView />
+    </div> -->
   </div>
 </template>
