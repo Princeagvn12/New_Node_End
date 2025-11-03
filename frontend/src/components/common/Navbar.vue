@@ -20,6 +20,12 @@ const canAccessUsers = computed(() => {
   const role = store.user?.role
   return !!role && ['admin', 'rh', 'formateur_principal', 'formateur'].includes(role)
 })
+
+// Nouveau: controle d'accès pour la vue Hours (admins/rh n'y ont pas accès)
+const canViewHours = computed(() => {
+  const role = store.user?.role
+  return !!role && ['formateur', 'formateur_principal', 'etudiant'].includes(role)
+})
 </script>
 
 <template>
@@ -29,7 +35,7 @@ const canAccessUsers = computed(() => {
       <div class="hidden md:flex gap-3 text-sm">
         <router-link to="/departments" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Departments</router-link>
         <router-link to="/courses" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Courses</router-link>
-        <router-link to="/hours" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Hours</router-link>
+        <router-link v-if="canViewHours" to="/hours" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Hours</router-link>
         <router-link v-if="canAccessUsers" to="/users" class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700">Users</router-link>
       </div>
     </div>
