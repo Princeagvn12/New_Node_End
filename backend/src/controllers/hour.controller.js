@@ -9,16 +9,31 @@ const getMyHours = async (req, res, next) => {
     const userId = req.user.id; // <-- utilise `id`
     console.log(req.user);
 
-    switch (req.user.role) {
-      case 'formateur':
-      case 'formateur_principal':
-        query.teacher = userId;
-        break;
-      case 'rh':
-      case 'admin':
-      default:
-        // admins/rh voient tout (ou appliquer votre logique)
-        break;
+    // Role-based filtering:
+    // - formateur -> only entries where teacher === userId
+    // - formateur_principal -> entries for courses in the principal's department
+    // - admin/rh -> no filter (see all)
+    if (req.user.role === 'formateur') {
+      query.teacher = userId;
+    } else if (req.user.role === 'formateur_principal') {
+      // Find course ids for this department and return hours related to those courses
+      const deptCourses = await Course.find({ department: req.user.department }).select('_id');
+      const courseIds = deptCourses.map(c => c._id);
+      // If there are no courses for this department, return empty list early
+      if (!courseIds || courseIds.length === 0) {
+        return res.json({ success: true, data: { hours: [] } });
+      }
+      query.course = { $in: courseIds };
+    } else if (req.user.role === 'etudiant') {
+      // For students: return only hours for courses the student is enrolled in
+      const studentCourses = await Course.find({ students: userId }).select('_id');
+      const courseIds = (studentCourses || []).map(c => c._id);
+      if (!courseIds || courseIds.length === 0) {
+        return res.json({ success: true, data: { hours: [] } });
+      }
+      query.course = { $in: courseIds };
+    } else {
+      // admin, rh, and other roles: keep query empty to return all entries (or apply other rules)
     }
 
     const hours = await HourEntry.find(query)

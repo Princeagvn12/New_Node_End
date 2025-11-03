@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import hourService from '../services/hour.service'
 import courseService from '../services/course.service'
+import StudentHoursView from '../components/student/StudentHoursView.vue'
 import { useUserStore } from '../store/user.store'
 import { useConfirmDialog } from '../composables/useConfirmDialog'
 import { showSuccess, showError } from '../utils/toast'
@@ -10,6 +11,7 @@ import Table from '../components/common/Table.vue'
 
 const userStore = useUserStore()
 const { confirm } = useConfirmDialog()
+const isStudent = computed(() => userStore.user?.role === 'etudiant')
 
 const entries = ref([])
 const loading = ref(false)
@@ -19,6 +21,8 @@ const form = ref({
   hours: 1,
   description: ''
 })
+
+const editingEntry = ref(null)
 
 const canManageHours = computed(() => 
   ['admin', 'formateur_principal', 'formateur'].includes(userStore.user?.role)
@@ -45,11 +49,16 @@ const load = async () => {
     
     
     courses.value = coursesRes
-    entries.value = hoursRes.map(entry => ({
-      ...entry,
-      courseTitle: courses.value.find(c => c._id === entry.course._id)?.title,
-      date: new Date(entry.date).toLocaleDateString()
-    }))
+    entries.value = hoursRes.map(entry => {
+      // entry.course may be populated object or just an id
+      const entryCourseId = String(entry.course && (entry.course._id || entry.course))
+      const courseObj = courses.value.find(c => String(c._id) === entryCourseId)
+      return {
+        ...entry,
+        courseTitle: courseObj ? courseObj.title : (entry.course && entry.course.title) || 'Unknown',
+        date: new Date(entry.date).toLocaleDateString()
+      }
+    })
   } catch (e) {
     console.error(e)
     showError('Failed to load hours entries')
@@ -87,14 +96,37 @@ const createHourEntry = async () => {
   if (!validateForm()) return
 
   try {
-    await hourService.create(form.value)
-    showSuccess('Hours entry created successfully')
+    if (editingEntry.value) {
+      // update flow
+      await hourService.update(editingEntry.value._id, form.value)
+      showSuccess('Hours entry updated successfully')
+      editingEntry.value = null
+    } else {
+      await hourService.create(form.value)
+      showSuccess('Hours entry created successfully')
+    }
+
     resetForm()
     await load()
   } catch (e) {
     console.error(e)
-    showError('Failed to create hours entry')
+    showError('Failed to save hours entry')
   }
+}
+
+const editEntry = (row) => {
+  editingEntry.value = row
+  form.value = {
+    course: String(row.course && (row.course._id || row.course)),
+    date: new Date(row.date).toISOString().split('T')[0],
+    hours: row.hours,
+    description: row.description || ''
+  }
+}
+
+const cancelEdit = () => {
+  editingEntry.value = null
+  resetForm()
 }
 
 const removeEntry = async (id) => {
@@ -123,6 +155,10 @@ onMounted(load)
   <div class="space-y-6">
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-semibold text-blue-500">Hours Management</h1>
+    <!-- Vue spécifique pour les étudiants -->
+    <StudentHoursView v-if="isStudent" />
+
+    <!-- Vue standard pour les autres rôles -->
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -173,15 +209,15 @@ onMounted(load)
         />
 
         <div class="flex justify-end gap-3">
-          <button @click="resetForm" 
+          <button @click="cancelEdit" 
             class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 
                    dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 
                    rounded-lg transition-colors">
-            Clear
+            {{ editingEntry ? 'Cancel' : 'Clear' }}
           </button>
           <button @click="createHourEntry" 
             class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">
-            Save Hours
+            {{ editingEntry ? 'Update' : 'Save Hours' }}
           </button>
         </div>
       </div>
@@ -198,6 +234,12 @@ onMounted(load)
           :loading="loading">
           <template #actions="{ row }">
             <div v-if="canManageHours" class="flex gap-2 justify-end">
+              <button
+                @click.prevent="editEntry(row)"
+                class="p-1 text-blue-500 hover:text-blue-600"
+                title="Edit">
+                ✏️
+              </button>
               <button
                 @click="removeEntry(row._id)"
                 class="p-1 text-red-500 hover:text-red-600">
