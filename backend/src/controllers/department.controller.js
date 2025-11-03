@@ -90,21 +90,22 @@ const updateDepartment = async (req, res, next) => {
 const deleteDepartment = async (req, res, next) => {
   try {
     const department = await Department.findById(req.params.id);
-    
+
     if (!department) {
       return createResponse(res, 404, 'Département non trouvé');
     }
-    
+
     // Vérifier s'il y a des utilisateurs dans ce département
     const hasUsers = await User.findOne({ department: department._id });
     if (hasUsers) {
       return createResponse(res, 400, 'Le département ne peut pas être supprimé car il contient des utilisateurs');
     }
-    
+
     await department.deleteOne();
     return createResponse(res, 200, 'Département supprimé avec succès');
   } catch (error) {
     next(error);
+
   }
 };
 

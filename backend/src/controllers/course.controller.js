@@ -1,4 +1,5 @@
 const Course = require('../models/Course');
+const HourEntry = require('../models/HourEntry');
 const { createResponse } = require('../utils/response');
 const { User } = require('../models/User');
 
@@ -21,7 +22,39 @@ const getCourses = async (req, res, next) => {
       .populate('teacher', 'name email')
       .populate('students', 'name email');
     
-    return createResponse(res, 200, 'Cours récupérés avec succès', { courses });
+    // For students attach aggregated stats per course
+    if (req.user.role === 'etudiant' && courses.length > 0) {
+      const courseIds = courses.map(c => c._id);
+
+      const aggr = await HourEntry.aggregate([
+        { $match: { course: { $in: courseIds } } },
+        {
+          $group: {
+            _id: '$course',
+            totalHours: { $sum: '$hours' },
+            lastEntryDate: { $max: '$date' }
+          }
+        }
+      ]);
+
+      const statsMap = aggr.reduce((m, item) => {
+        m[String(item._id)] = {
+          totalHours: item.totalHours || 0,
+          lastEntryDate: item.lastEntryDate || null
+        };
+        return m;
+      }, {});
+
+      const coursesWithStats = courses.map(c => {
+        const plain = c.toObject ? c.toObject() : c;
+        plain.stats = statsMap[String(plain._id)] || { totalHours: 0, lastEntryDate: null };
+        return plain;
+      });
+
+      return createResponse(res, 200, 'Cours récupérés avec statistiques', { courses: coursesWithStats });
+    }
+
+    return createResponse(res, 200, 'Cours récupérés', { courses });
   } catch (error) {
     next(error);
   }
@@ -219,7 +252,6 @@ const deleteCourse = async (req, res, next) => {
     }
     
     // Vérifier s'il existe des heures enregistrées pour ce cours
-    const HourEntry = require('../models/HourEntry');
     const hasHours = await HourEntry.exists({ course: course._id });
     if (hasHours) {
       return createResponse(res, 400, 'Le cours ne peut pas être supprimé car il contient des heures enregistrées');
