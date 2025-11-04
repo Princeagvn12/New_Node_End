@@ -9,6 +9,7 @@ const {
   verifyRefreshToken,
   createCookieOptions,
 } = require("../config/jwt");
+const CODE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Login user and set JWT cookies
@@ -187,56 +188,41 @@ async function me(req, res, next) {
  * POST /api/auth/forgot
  * body: { email }
  */
-async function forgotPassword(req, res, next) {
+async function requestPasswordReset(req, res) {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: 'Email required' });
+
   try {
-    const { email } = req.body;
-    if (!email) return createResponse(res, 400, 'Email requis');
-
-    const user = await User.findOne({ email });
-    // Never reveal whether user exists — respond with success message for security
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
-      return createResponse(res, 200, "Un email de réinitialisation a été envoyé si le compte existe");
+      // don't reveal user existence
+      return res.status(200).json({ message: 'If the account exists, a reset code was sent.' });
     }
 
-    // generate token (plain for email, store hashed)
-    const token = crypto.randomBytes(20).toString('hex');
-    const hashed = crypto.createHash('sha256').update(token).digest('hex');
+    // generate 6-digit code
+    const code = String(crypto.randomInt(100000, 999999));
+    const hash = await bcrypt.hash(code, 10);
 
-    user.resetPasswordToken = hashed;
-    user.resetPasswordExpires = Date.now() + 3600 * 1000; // 1 hour
-    await user.save({ validateBeforeSave: false });
+    user.resetCodeHash = hash;
+    user.resetCodeExpiry = Date.now() + CODE_TTL_MS;
+    await user.save();
 
-    // build reset URL (frontend handles the token)
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetUrl = `${frontendUrl}/reset-password?token=${token}&id=${user._id}`;
+    // send email (non-blocking: await so errors can be propagated but doesn't block other threads)
+    const subject = 'Your password reset code';
+    const html = `<p>Your verification code is <strong>${code}</strong>. It expires in 15 minutes.</p>`;
+    const text = `Your verification code is ${code}. It expires in 15 minutes.`;
 
-    const html = `<p>Vous avez demandé une réinitialisation de mot de passe. Utilisez le lien ci‑dessous (valable 1h) :</p>
-                  <p><a href="${resetUrl}">${resetUrl}</a></p>
-                  <p>Si vous n'avez pas demandé cette opération, ignorez ce message.</p>`;
-
-    const mailInfo = await sendMail({
-      to: user.email,
-      subject: 'Réinitialisation du mot de passe',
-      html,
-      text: `Réinitialisation: ${resetUrl}`
-    });
-
-    // Log mail sending details to help debugging (messageId and Ethereal preview URL when available)
     try {
-      console.log('Reset password email sent info:', mailInfo && (mailInfo.messageId || mailInfo.response) ? (mailInfo.messageId || mailInfo.response) : mailInfo);
-      const nodemailer = require('nodemailer');
-      if (nodemailer.getTestMessageUrl) {
-        const preview = nodemailer.getTestMessageUrl(mailInfo);
-        if (preview) console.log('Ethereal preview URL:', preview);
-      }
-    } catch (logErr) {
-      console.warn('Could not log mail preview URL', logErr && logErr.message ? logErr.message : logErr);
+      await sendMail({ to: user.email, subject, html, text });
+    } catch (mailErr) {
+      console.error('Failed to send reset code email:', mailErr && mailErr.message ? mailErr.message : mailErr);
+      // we still return success response to avoid leaking info, but log the error
     }
 
-    return createResponse(res, 200, "Un email de réinitialisation a été envoyé si le compte existe");
+    return res.status(200).json({ message: 'If the account exists, a reset code was sent.' });
   } catch (err) {
-    console.log("ereeeeeee");
-    next(err);
+    console.error('requestPasswordReset error:', err);
+    return res.status(500).json({ message: 'Internal error' });
   }
 }
 
@@ -245,30 +231,40 @@ async function forgotPassword(req, res, next) {
  * POST /api/auth/reset
  * body: { token, password }
  */
-async function resetPassword(req, res, next) {
+async function resetPasswordWithCode(req, res) {
+  const { email, code, password } = req.body;
+  if (!email || !code || !password) return res.status(400).json({ message: 'Email, code and password are required' });
+
   try {
-    const { token, password } = req.body;
-    if (!token || !password) return createResponse(res, 400, 'Token et nouveau mot de passe requis');
+    const user = await User.findOne({ email: email });
+    console.log(user);
+    
+    if (!user || !user.resetCodeHash || !user.resetCodeExpiry) {
+      return res.status(400).json({ message: 'Invalid code or expired' });
+    }
 
-    const hashed = crypto.createHash('sha256').update(token).digest('hex');
+    if (Date.now() > user.resetCodeExpiry) {
+      // cleanup
+      user.resetCodeHash = undefined;
+      user.resetCodeExpiry = undefined;
+      await user.save();
+      return res.status(400).json({ message: 'Code expired' });
+    }
 
-    const user = await User.findOne({
-      resetPasswordToken: hashed,
-      resetPasswordExpires: { $gt: Date.now() }
-    });
+    const match = await bcrypt.compare(String(code), user.resetCodeHash);
+    if (!match) return res.status(400).json({ message: 'Invalid code' });
 
-    if (!user) return createResponse(res, 400, 'Token invalide ou expiré');
-
-    // hash new password and save
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    // ok: reset password
+    const pwHash = await bcrypt.hash(password, 10);
+    user.password = pwHash;
+    user.resetCodeHash = undefined;
+    user.resetCodeExpiry = undefined;
     await user.save();
 
-    return createResponse(res, 200, 'Mot de passe réinitialisé avec succès');
+    return res.status(200).json({ message: 'Password updated' });
   } catch (err) {
-    next(err);
+    console.error('resetPasswordWithCode error:', err);
+    return res.status(500).json({ message: 'Internal error' });
   }
 }
 
@@ -277,6 +273,7 @@ module.exports = {
   refresh,
   logout,
   me,
-  forgotPassword,
-  resetPassword
+  requestPasswordReset,
+  resetPasswordWithCode
 };
+

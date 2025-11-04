@@ -13,10 +13,11 @@ const submit = async () => {
   loading.value = true
   try {
     await authService.requestPasswordReset(email.value)
-    showSuccess('If the account exists, a reset email has been sent')
+    showSuccess('If the account exists, a reset code has been sent to the email')
+    // redirect to reset page, passing email so user doesn't have to retype it
     setTimeout(() => {
-      router.push({ name: 'ResetPassword' })
-    }, 4000)
+      router.push({ name: 'ResetPassword', query: { email: email.value } })
+    }, 1000)
   } catch (e) {
     showError(e?.response?.data?.message || 'Error while sending request')
   } finally {
