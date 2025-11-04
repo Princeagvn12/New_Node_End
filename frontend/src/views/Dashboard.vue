@@ -186,94 +186,175 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-8 p-6">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-blue-400">Dashboard</h1>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Bienvenue, <strong>{{ store.user?.name || 'Invité' }}</strong> — rôle: <span class="font-medium">{{ role }}</span></p>
+        <h1 class="text-3xl font-bold bg-linear-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Dashboard</h1>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">Bienvenue, <strong>{{ store.user?.name || 'Invité' }}</strong> — rôle: <span class="font-medium">{{ role }}</span></p>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- future actions / filters can go here -->
       </div>
     </div>
+    
+  </div>
 
     <!-- Admin / RH view -->
-    <section v-if="role === 'admin' || role === 'rh'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="glass-card p-4">
-        <div class="text-sm text-gray-500">Utilisateurs</div>
-        <div class="text-2xl font-semibold">{{ usersCount }}</div>
+        <section v-if="role === 'admin' || role === 'rh'" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="p-6 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl shadow-blue-500/5 border border-blue-100 dark:border-blue-900 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300">
+        <div class="flex items-center gap-4">
+          <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/50">
+            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Total Users</p>
+            <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ usersCount }}</p>
+          </div>
+        </div>
       </div>
-      <div class="glass-card p-4">
-        <div class="text-sm text-gray-500">Départements</div>
-        <div class="text-2xl font-semibold">{{ departmentsCount }}</div>
+      
+      <div class="p-6 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl shadow-blue-500/5 border border-blue-100 dark:border-blue-900 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300">
+        <div class="flex items-center gap-4">
+          <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/50">
+            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Departments</p>
+            <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ departmentsCount }}</p>
+          </div>
+        </div>
       </div>
-      <div class="glass-card p-4">
-        <div class="text-sm text-gray-500">Cours</div>
-        <div class="text-2xl font-semibold">{{ coursesCount }}</div>
+      
+      <div class="p-6 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl shadow-blue-500/5 border border-blue-100 dark:border-blue-900 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300">
+        <div class="flex items-center gap-4">
+          <div class="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/50">
+            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Courses</p>
+            <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ coursesCount }}</p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section v-if="role === 'admin' || role === 'rh'" class="mt-4">
-      <h2 class="text-lg font-semibold mb-2">Utilisateurs récents</h2>
-      <div class="glass-card p-4">
-        <ul class="divide-y">
-          <li v-for="u in recentUsers" :key="u._id" class="py-2">
-            <div class="flex justify-between">
+    <section v-if="role === 'admin' || role === 'rh'" class="mt-8">
+      <h2 class="text-xl font-semibold mb-4 text-slate-900 dark:text-white">Recent Users</h2>
+      <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl border border-blue-100 dark:border-blue-900 overflow-hidden">
+        <div class="p-6 space-y-4">
+          <div v-for="user in recentUsers" :key="user._id" class="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                <span class="text-blue-600 dark:text-blue-400 font-medium">{{ user.name.charAt(0) }}</span>
+              </div>
               <div>
-                <div class="font-medium">{{ u.name }}</div>
-                <div class="text-sm text-gray-500">{{ u.email }} — {{ u.role }}</div>
+                <p class="font-medium text-slate-900 dark:text-white">{{ user.name }}</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400">{{ user.email }}</p>
               </div>
             </div>
-          </li>
-          <li v-if="!recentUsers.length" class="py-2 text-sm text-gray-500">Aucun utilisateur récent</li>
-        </ul>
+            <span class="px-3 py-1 rounded-lg text-xs font-medium" :class="{
+              'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400': user.role === 'admin',
+              'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400': user.role === 'formateur',
+              'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-400': user.role === 'etudiant'
+            }">
+              {{ user.role }}
+            </span>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- Formateur principal view -->
-    <section v-if="role === 'formateur_principal'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="glass-card p-4">
-        <h3 class="font-semibold">Mes cours (dans mon département)</h3>
-        <div class="mt-2 text-lg">{{ myCourses.length }} cours</div>
+    <section v-if="role === 'formateur_principal'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl border border-blue-100 dark:border-blue-900 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Mes cours (dans mon département)</h3>
+        <div class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{{ myCourses.length }} <span class="text-sm font-medium text-slate-500">cours</span></div>
+        <div class="mt-4 space-y-2">
+          <div v-for="course in myCourses.slice(0,5)" :key="course._id" class="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+            <div class="font-medium text-slate-900 dark:text-white">{{ course.title }}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">{{ course.code || course.department?.name || '' }}</div>
+          </div>
+        </div>
       </div>
-      <div class="glass-card p-4">
-        <h3 class="font-semibold">Saisies d'heures récentes</h3>
-        <div class="mt-2 text-lg">{{ myHours.length }} entrées</div>
+      <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl border border-blue-100 dark:border-blue-900 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Saisies d'heures récentes</h3>
+        <div class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{{ myHours.length }} <span class="text-sm font-medium text-slate-500">entrées</span></div>
+        <div class="mt-4 space-y-2">
+          <div v-for="h in myHours.slice(0,5)" :key="h._id" class="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center">
+            <div>
+              <div class="font-medium text-slate-900 dark:text-white">{{ h.course?.title || 'Cours inconnu' }}</div>
+              <div class="text-sm text-slate-500 dark:text-slate-400">{{ new Date(h.date).toLocaleDateString() }}</div>
+            </div>
+            <div class="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{{ h.hours }}h</div>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- Formateur view -->
-    <section v-if="role === 'formateur'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="glass-card p-4">
-        <h3 class="font-semibold">Mes cours</h3>
-        <div class="mt-2 text-lg">{{ myCourses.length }} cours</div>
+    <section v-if="role === 'formateur'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl border border-blue-100 dark:border-blue-900 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Mes cours</h3>
+        <div class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{{ myCourses.length }} <span class="text-sm font-medium text-slate-500">cours</span></div>
+        <div class="mt-4 space-y-2">
+          <div v-for="course in myCourses.slice(0,5)" :key="course._id" class="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+            <div class="font-medium text-slate-900 dark:text-white">{{ course.title }}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">{{ course.code || course.department?.name || '' }}</div>
+          </div>
+        </div>
       </div>
-      <div class="glass-card p-4">
-        <h3 class="font-semibold">Mes saisies</h3>
-        <div class="mt-2 text-lg">{{ myHours.length }} entrées</div>
+      <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl border border-blue-100 dark:border-blue-900 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Mes saisies</h3>
+        <div class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{{ myHours.length }} <span class="text-sm font-medium text-slate-500">entrées</span></div>
+        <div class="mt-4 space-y-2">
+          <div v-for="h in myHours.slice(0,5)" :key="h._id" class="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center">
+            <div>
+              <div class="font-medium text-slate-900 dark:text-white">{{ h.course?.title || 'Cours inconnu' }}</div>
+              <div class="text-sm text-slate-500 dark:text-slate-400">{{ new Date(h.date).toLocaleDateString() }}</div>
+            </div>
+            <div class="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{{ h.hours }}h</div>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- Étudiant view -->
-    <section v-if="role === 'etudiant'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="glass-card p-4">
-        <h3 class="font-semibold">Mes cours</h3>
-        <div class="mt-2 text-lg">{{ myCourses.length }} cours</div>
+    <section v-if="role === 'etudiant'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl border border-blue-100 dark:border-blue-900 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Mes cours</h3>
+        <div class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{{ myCourses.length }} <span class="text-sm font-medium text-slate-500">cours</span></div>
         <div class="mt-4">
-          <ul class="divide-y">
+          <ul class="space-y-3">
             <li v-for="c in myCourses" :key="c._id" class="py-2">
-              <div class="flex justify-between items-center">
+              <div class="flex justify-between items-center p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
                 <div>
-                  <div class="font-medium">{{ c.title || c.name || 'Cours sans titre' }}</div>
-                  <div class="text-sm text-gray-500">{{ c.teacher?.name || c.teacher?.email || '' }} — {{ c.department?.name || '' }}</div>
+                  <div class="font-medium text-slate-900 dark:text-white">{{ c.title || c.name || 'Cours sans titre' }}</div>
+                  <div class="text-sm text-slate-500 dark:text-slate-400">{{ c.teacher?.name || c.teacher?.email || '' }} — {{ c.department?.name || '' }}</div>
                 </div>
               </div>
             </li>
-            <li v-if="!myCourses.length" class="py-2 text-sm text-gray-500">Vous n'êtes affecté à aucun cours pour le moment.</li>
+            <li v-if="!myCourses.length" class="py-2 text-sm text-slate-500">Vous n'êtes affecté à aucun cours pour le moment.</li>
           </ul>
         </div>
       </div>
-      <div class="glass-card p-4">
-        <h3 class="font-semibold">Mes heures</h3>
-        <div class="mt-2 text-lg">{{ myHours.length }} entrées</div>
+      <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-xl border border-blue-100 dark:border-blue-900 p-6">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Mes heures</h3>
+        <div class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">{{ myHours.length }} <span class="text-sm font-medium text-slate-500">entrées</span></div>
+        <div class="mt-4 space-y-2">
+          <div v-for="h in myHours.slice(0,5)" :key="h._id" class="p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center">
+            <div>
+              <div class="font-medium text-slate-900 dark:text-white">{{ h.course?.title || 'Cours inconnu' }}</div>
+              <div class="text-sm text-slate-500 dark:text-slate-400">{{ new Date(h.date).toLocaleDateString() }}</div>
+            </div>
+            <div class="px-3 py-1 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{{ h.hours }}h</div>
+          </div>
+        </div>
       </div>
     </section>
-  </div>
 </template>

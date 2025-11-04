@@ -256,49 +256,54 @@ onMounted(async () => { await load(); await loadDepartments() })
 <template>
   <div>
     <!-- Confirmation Dialog -->
-    <div v-if="confirmDialog.show" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-        <p class="text-lg mb-4">{{ confirmDialog.message }}</p>
-        <div class="flex justify-end gap-3">
-          <button @click="confirmDialog.show = false" class="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">
-            Cancel
-          </button>
-          <button @click="executeConfirmedAction" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
-            Confirm
-          </button>
+    <div v-if="confirmDialog.show" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+      <div class="w-full max-w-md">
+        <div class="rounded-2xl bg-white/90 dark:bg-slate-800/90 p-6 shadow-2xl border border-blue-100 dark:border-blue-900">
+          <p class="text-lg mb-4 text-slate-900 dark:text-white">{{ confirmDialog.message }}</p>
+          <div class="flex justify-end gap-3">
+            <button @click="confirmDialog.show = false" class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300">Cancel</button>
+            <button @click="executeConfirmedAction" class="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600">Confirm</button>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Assign/Unassign Dialog -->
-    <div v-if="assignDialog.show" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-        <h3 class="text-lg font-semibold mb-3">Affectation / Désaffectation</h3>
-        <p class="mb-3">Étudiant: <strong>{{ assignDialog.student?.name }}</strong></p>
-        <div>
-          <label class="block text-sm mb-1">Choisir un cours</label>
-          <select v-model="assignDialog.selected" class="w-full p-2 rounded border">
-            <option v-for="c in assignDialog.choices" :key="c._id" :value="String(c._id)">{{ c.title }}</option>
-          </select>
-        </div>
-        <div class="flex justify-end gap-3 mt-4">
-          <button @click="assignDialog.show = false" class="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-          <button @click="confirmAssign" class="px-4 py-2 bg-blue-500 text-white rounded">Assign</button>
-          <button @click="confirmUnassign" class="px-4 py-2 bg-red-500 text-white rounded">Unassign</button>
+    <div v-if="assignDialog.show" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+      <div class="w-full max-w-md">
+        <div class="rounded-2xl bg-white/90 dark:bg-slate-800/90 p-6 shadow-2xl border border-blue-100 dark:border-blue-900">
+          <h3 class="text-lg font-semibold mb-3 text-slate-900 dark:text-white">Affectation / Désaffectation</h3>
+          <p class="mb-3 text-slate-700 dark:text-slate-300">Étudiant: <strong>{{ assignDialog.student?.name }}</strong></p>
+          <div>
+            <label class="block text-sm mb-1 text-slate-700 dark:text-slate-300">Choisir un cours</label>
+            <select v-model="assignDialog.selected" class="w-full p-2 rounded-lg border">
+              <option v-for="c in assignDialog.choices" :key="c._id" :value="String(c._id)">{{ c.title }}</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-3 mt-4">
+            <button @click="assignDialog.show = false" class="px-4 py-2 rounded-lg bg-slate-200">Cancel</button>
+            <button @click="confirmAssign" class="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white">Assign</button>
+            <button @click="confirmUnassign" class="px-4 py-2 rounded-lg bg-red-500 text-white">Unassign</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <h1 class="text-2xl font-semibold text-blue-400">Users</h1>
-    <div class="mt-4 flex justify-between items-center">
-      <button v-if="canManageUsers" @click="showCreate = !showCreate" 
-        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors">
-        {{ showCreate ? 'Cancel' : 'Create User' }}
-      </button>
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold bg-linear-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Users</h1>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">Gestion des utilisateurs</p>
+      </div>
+      <div>
+        <button v-if="canManageUsers" @click="showCreate = !showCreate" 
+          class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium shadow-md transition-all">
+          {{ showCreate ? 'Cancel' : 'Create User' }}
+        </button>
+      </div>
     </div>
 
-    <div v-if="showCreate" class="mt-4 p-6 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-lg shadow-md">
-      <h2 class="text-xl font-semibold mb-4">{{ editingUser ? 'Edit User' : 'Create New User' }}</h2>
+    <div v-if="showCreate" class="mt-4 p-6 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-blue-100 dark:border-blue-900 shadow-xl">
+      <h2 class="text-2xl font-semibold mb-4 text-slate-900 dark:text-white">{{ editingUser ? 'Edit User' : 'Create New User' }}</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField v-model="form.name" label="Name" required />
         <FormField v-model="form.email" label="Email" type="email" required />
@@ -322,12 +327,13 @@ onMounted(async () => { await load(); await loadDepartments() })
         </div>
       </div>
       <div class="mt-3 text-right">
-        <button @click="saveUser" class="px-3 py-1 bg-blue-400 text-white rounded">{{ editingUser ? 'Update' : 'Create' }}</button>
+        <button @click="saveUser" class="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium shadow-md">{{ editingUser ? 'Update' : 'Create' }}</button>
       </div>
     </div>
     <div v-if="loading">Loading...</div>
-    <div v-else class="mt-4">
-      <Table :columns="columns" :rows="users">
+    <div v-else class="mt-6">
+      <div class="rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-blue-100 dark:border-blue-900 overflow-hidden shadow-xl">
+        <Table :columns="columns" :rows="users">
         <template #cell-department="{ row }">
           {{ row.department?.name || '-' }}
         </template>
@@ -356,7 +362,8 @@ onMounted(async () => { await load(); await loadDepartments() })
           </div>
           <div v-else class="text-sm text-gray-500">-</div>
         </template>
-      </Table>
+        </Table>
+      </div>
     </div>
   </div>
 </template>
