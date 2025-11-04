@@ -38,5 +38,5 @@ router.patch('/students/:id/course', allow(['formateur_principal', 'formateur'])
 
 // Password change: user himself or admin/rh can change
 router.patch('/:id/password', validate(changePasswordSchema), userController.changePassword);
-
+router.delete('/:id', allow(['admin', 'rh']), userController.deleteUser);
 module.exports = router;
