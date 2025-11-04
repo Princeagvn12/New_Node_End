@@ -2,12 +2,17 @@ import api from './api'
 
 const unwrapCourses = (res) => {
   if (!res) return []
-  if (Array.isArray(res)) return res
-  // axios + backend createResponse -> res.data.data.courses
-  if (res.data?.data?.courses) return res.data.data.courses
-  if (res.data?.courses) return res.data.courses
-  if (res.data) return res.data
-  return []
+
+  let courses = null
+
+  if (Array.isArray(res)) courses = res
+  else if (Array.isArray(res.data?.data?.courses)) courses = res.data.data.courses
+  else if (Array.isArray(res.data?.courses)) courses = res.data.courses
+  else if (Array.isArray(res.data)) courses = res.data
+  else return []
+
+  // remove null/undefined entries (and other falsy non-object values)
+  return courses.filter(c => c != null)
 }
 
 const getAll = () => api.get('/courses').then(res => unwrapCourses(res))
