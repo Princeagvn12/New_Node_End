@@ -305,6 +305,20 @@ const updateStudentCourseAssignment = async (req, res, next) => {
   }
 };
 
+// Delete user (admin / rh)
+const deleteUser = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) {
+      return createResponse(res, 404, 'Utilisateur non trouvé');
+    }
+    return createResponse(res, 200, 'Utilisateur supprimé avec succès');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUsers,
   getUserById,
@@ -317,5 +331,6 @@ module.exports = {
   getTeachers,
   // new exports
   toggleStudentActiveForTeacher,
-  updateStudentCourseAssignment
+  updateStudentCourseAssignment,
+  deleteUser
 };
