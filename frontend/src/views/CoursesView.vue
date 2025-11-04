@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import courseService from '../services/course.service'
+import courseService from '../services/course.service.js'
 import FormField from '../components/common/FormField.vue'
 import Table from '../components/common/Table.vue'
 // import ConfirmDialog from '../components/common/ConfirmDialog.vue'
@@ -63,6 +63,7 @@ const load = async () => {
       courseService.getAll(),
       departmentService.getAll()
     ])
+    console.log(coursesRes[0])
 
     // Charger la liste des étudiants via endpoint dédié
     let studentsList = []
@@ -93,15 +94,35 @@ const load = async () => {
     }
 
     departments.value = depsRes
+    console.log(departments.value[0]._id);
     teachers.value = teachersList
+    console.log(teachers.value);
     students.value = studentsList
+    console.log(students.value);
 
-    courses.value = coursesRes.map(course => ({
-      ...course,
-      department: departments.value.find(d => d._id === course.department._id)?.name || '-',
-      teacher: teachers.value.find(t => t._id === course.teacher._id)?.name || '-',
-      studentsCount: course.students?.length || 0
-    }))
+    // courses.value = coursesRes.map(course => ({
+    //   ...course,
+    //   department: departments.value.find(d => d._id === course.department._id)?.name || '-',
+    //   teacher: teachers.value.find(t => t._id === course.teacher._id)?.name || '-',
+    //   studentsCount: course.students?.length || 0
+    // }))
+    // defend against null items and department/teacher being either object or id string
+    courses.value = coursesRes
+      .filter(Boolean)
+      .map(course => {
+        const deptId = course?.department?._id || course?.department || null
+        const teacherId = course?.teacher?._id || course?.teacher || null
+
+        const department = departments.value.find(d => d._id === deptId)
+        const teacher = teachers.value.find(t => t._id === teacherId)
+
+        return {
+          ...course,
+          department: department ? department.name : '-',
+          teacher: teacher ? teacher.name : '-',
+          studentsCount: course?.students?.length || 0
+        }
+      })
   } catch (e) {
     console.error(e)
     showError('Failed to load data')

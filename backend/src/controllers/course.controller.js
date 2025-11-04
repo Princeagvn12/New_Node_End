@@ -21,6 +21,8 @@ const getCourses = async (req, res, next) => {
       .populate('department', 'name')
       .populate('teacher', 'name email')
       .populate('students', 'name email');
+     
+      
     
     // For students attach aggregated stats per course
     if (req.user.role === 'etudiant' && courses.length > 0) {
@@ -53,7 +55,7 @@ const getCourses = async (req, res, next) => {
 
       return createResponse(res, 200, 'Cours récupérés avec statistiques', { courses: coursesWithStats });
     }
-
+    console.log(courses);
     return createResponse(res, 200, 'Cours récupérés', { courses });
   } catch (error) {
     next(error);
