@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-const userSchema = new mongoose.Schema(
+const { Schema } = mongoose;
+
+const userSchema = new Schema(
   {
     name: {
       type: String,
@@ -36,14 +38,16 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
-    resetPasswordToken: {
-      type: String,
-      default: undefined
-    },
-    resetPasswordExpires: {
-      type: Date,
-      default: undefined
-    }
+    // resetPasswordToken: {
+    //   type: String,
+    //   default: undefined
+    // },
+    // resetPasswordExpires: {
+    //   type: Date,
+    //   default: undefined
+    // },
+    resetCodeHash: { type: String },
+    resetCodeExpiry: { type: Date }
   },
   {
     timestamps: true
@@ -93,7 +97,5 @@ userSchema.pre('save', async function(next) {
     next(error);
   }
 });
-
-const User = mongoose.model('User', userSchema);
-
-module.exports = { User };
+const User = mongoose.model('User', userSchema)
+module.exports = {User} ;
