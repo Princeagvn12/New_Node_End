@@ -66,6 +66,12 @@ const routes = [
     path: '/reset-password',
     name: 'ResetPassword',
     component: () => import('../views/ResetPassword.vue')
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('../views/SettingsView.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

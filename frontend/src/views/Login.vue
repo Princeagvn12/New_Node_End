@@ -3,7 +3,6 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { showSuccess, showError } from '../utils/toast'
-import FormField from '../components/common/FormField.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -15,6 +14,7 @@ const form = ref({
 })
 
 const loading = ref(false)
+const showPassword = ref(false)
 
 // new: control the welcome splash
 const showSplash = ref(true)
@@ -23,7 +23,7 @@ onMounted(() => {
   // duration of the splash before showing the form (ms)
   setTimeout(() => {
     showSplash.value = false
-  }, 3000)
+  }, 2000)
 })
 
 const handleLogin = async () => {
@@ -51,117 +51,514 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <!-- Fullscreen fixed layout to avoid any scrollbars on login -->
-  <div class="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center overflow-hidden">
-    <!-- Splash Welcome (centered, backdrop + blobs) -->
-    <div
-      v-show="showSplash"
-      class="absolute inset-0 flex items-center justify-center transition-opacity duration-700"
-      aria-hidden="true"
-    >
-      <div class="absolute inset-0 backdrop-blur-md bg-white/30 dark:bg-slate-900/40"></div>
+  <div class="login-page">
+    <!-- Animated background blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
 
-      <!-- decorative colorful blobs -->
-      <div class="absolute left-8 top-20 w-64 h-64 rounded-full bg-indigo-500/40 blur-3xl transform -rotate-6 animate-[pulse_3s_infinite]"></div>
-      <div class="absolute -right-8 bottom-24 w-56 h-56 rounded-full bg-blue-300/30 blur-2xl transform rotate-12"></div>
-      <div class="absolute right-28 top-24 w-36 h-36 rounded-full bg-cyan-300/30 blur-xl"></div>
-
-      <div class="relative z-10 text-center px-6">
-        <div class="text-4xl md:text-6xl font-extrabold text-slate-900 dark:text-white drop-shadow-sm">Welcome</div>
-        <p class="mt-4 text-sm text-slate-700 dark:text-slate-300/90">Welcome to your platform</p>
+    <!-- Splash Welcome -->
+    <transition name="splash-fade">
+      <div v-if="showSplash" class="splash-overlay">
+        <div class="splash-content">
+          <div class="splash-logo">
+            <div class="splash-logo-icon">
+              <i class="pi pi-bolt" style="font-size: 2rem;"></i>
+            </div>
+          </div>
+          <h1 class="splash-title">Welcome to Gestion</h1>
+          <p class="splash-subtitle">Your modern school management platform</p>
+          <div class="splash-loader">
+            <div class="splash-loader-bar"></div>
+          </div>
+        </div>
       </div>
-    </div>
+    </transition>
 
-    <!-- Login two-column card (keeps within viewport, no internal scroll) -->
-    <div
-      v-show="!showSplash"
-      class="relative w-full max-w-5xl mx-4 md:mx-auto transition-opacity duration-700 z-20"
-      style="max-height: 88vh;"
-    >
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-0 bg-white/95 dark:bg-slate-800/85 rounded-3xl shadow-2xl overflow-hidden">
-        <!-- Left presentation panel (blue, informational) -->
-        <div class="relative hidden md:flex flex-col justify-center p-12 text-white bg-gradient-to-br from-indigo-600 via-blue-500 to-cyan-500">
-          <!-- subtle decorative whites for depth -->
-          <div class="absolute -left-16 -top-10 w-72 h-72 rounded-full bg-white/6 blur-2xl"></div>
-          <div class="absolute right-10 bottom-10 w-40 h-40 rounded-full bg-white/8 blur-xl"></div>
-
-          <div class="z-10">
-            <div class="flex items-center gap-3 mb-8">
-              <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold">G</div>
-              <div class="text-sm font-semibold">Gestion</div>
+    <!-- Login Card -->
+    <transition name="card-appear">
+      <div v-show="!showSplash" class="login-card">
+        <!-- Left branding panel -->
+        <div class="brand-panel">
+          <div class="brand-overlay"></div>
+          <div class="brand-content">
+            <div class="brand-logo">
+              <div class="brand-logo-icon">
+                <i class="pi pi-bolt" style="font-size: 1.25rem;"></i>
+              </div>
+              <span class="brand-name">Gestion</span>
             </div>
 
-            <h2 class="text-3xl font-extrabold leading-tight mb-4">Sign in to your account</h2>
-            <p class="text-white/90 mb-6">Access your dashboard, follow your courses and manage your hours — fast and secure.</p>
+            <h2 class="brand-heading">Sign in to your<br>account</h2>
+            <p class="brand-desc">Access your dashboard, follow your courses and manage your hours — fast and secure.</p>
 
-            <ul class="space-y-3 text-sm text-white/90">
-              <li class="flex items-start gap-3">
-                <span class="w-3 h-3 rounded-full bg-white/80 mt-1"></span>
-                Access courses and resources
+            <ul class="brand-features">
+              <li>
+                <div class="feature-icon"><i class="pi pi-book"></i></div>
+                <span>Access courses and resources</span>
               </li>
-              <li class="flex items-start gap-3">
-                <span class="w-3 h-3 rounded-full bg-white/80 mt-1"></span>
-                Track attendance and hours
+              <li>
+                <div class="feature-icon"><i class="pi pi-clock"></i></div>
+                <span>Track attendance and hours</span>
               </li>
-              <li class="flex items-start gap-3">
-                <span class="w-3 h-3 rounded-full bg-white/80 mt-1"></span>
-                Manage your profile
+              <li>
+                <div class="feature-icon"><i class="pi pi-user"></i></div>
+                <span>Manage your profile</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <!-- Right form panel (clean, centered) -->
-        <div class="p-6 md:p-12 flex items-center justify-center">
-          <div class="w-full max-w-md">
-            <div class="text-center mb-6">
-              <h1 class="text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100">Welcome back</h1>
-              <p class="mt-2 text-sm text-slate-500 dark:text-slate-300">Sign in to continue to your dashboard</p>
+        <!-- Right form panel -->
+        <div class="form-panel">
+          <div class="form-inner">
+            <div class="form-header">
+              <h1 class="form-title">Welcome back</h1>
+              <p class="form-subtitle">Sign in to continue to your dashboard</p>
             </div>
 
-            <form @submit.prevent="handleLogin" class="space-y-4">
-              <FormField
-                v-model="form.email"
-                label="Email"
-                type="email"
-                placeholder="your.email@example.com"
-                required
-                autocomplete="email"
-              />
+            <form @submit.prevent="handleLogin" class="login-form">
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <div class="input-wrapper">
+                  <i class="pi pi-envelope input-icon"></i>
+                  <input
+                    v-model="form.email"
+                    type="email"
+                    placeholder="your.email@example.com"
+                    required
+                    autocomplete="email"
+                    class="form-input with-icon"
+                  />
+                </div>
+              </div>
 
-              <FormField
-                v-model="form.password"
-                label="Password"
-                type="password"
-                placeholder="••••••••"
-                required
-                autocomplete="current-password"
-              />
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="input-wrapper">
+                  <i class="pi pi-lock input-icon"></i>
+                  <input
+                    v-model="form.password"
+                    :type="showPassword ? 'text' : 'password'"
+                    placeholder="••••••••"
+                    required
+                    autocomplete="current-password"
+                    class="form-input with-icon"
+                  />
+                  <button
+                    type="button"
+                    class="password-toggle"
+                    @click="showPassword = !showPassword"
+                    tabindex="-1"
+                  >
+                    <i :class="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+                  </button>
+                </div>
+              </div>
 
               <button
                 type="submit"
                 :disabled="loading"
-                class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 
-                       text-white font-semibold rounded-lg transition-colors duration-200
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                class="submit-btn"
+              >
+                <i v-if="loading" class="pi pi-spin pi-spinner" style="margin-right: 0.5rem;"></i>
                 {{ loading ? 'Signing in...' : 'Sign in' }}
               </button>
             </form>
 
-            <div class="mt-4 flex items-center justify-between text-sm">
-              <router-link to="/forgot-password" class="text-blue-600 hover:underline">Forgot password?</router-link>
-              <!-- optional small link to signup / help (keeps everything in English) -->
-              <router-link to="/help" class="text-slate-500 hover:underline hidden sm:inline">Need help?</router-link>
+            <div class="form-footer">
+              <router-link to="/forgot-password" class="link">Forgot password?</router-link>
             </div>
 
-            <!-- subtle footer -->
-            <div class="mt-6 text-center text-xs text-slate-400">
+            <div class="form-copyright">
               © <span class="font-medium">Gestion</span> • All rights reserved
             </div>
           </div>
         </div>
       </div>
-    </div>
-
+    </transition>
   </div>
 </template>
+
+<style scoped>
+.login-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #EEF2FF 0%, #DBEAFE 50%, #E0E7FF 100%);
+  overflow: hidden;
+}
+.dark .login-page {
+  background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%);
+}
+
+/* Animated blobs */
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  animation: float 8s ease-in-out infinite;
+}
+.blob-1 {
+  width: 400px; height: 400px;
+  background: rgba(99, 102, 241, 0.3);
+  top: -10%; left: -5%;
+  animation-delay: 0s;
+}
+.blob-2 {
+  width: 300px; height: 300px;
+  background: rgba(59, 130, 246, 0.25);
+  bottom: -5%; right: -5%;
+  animation-delay: -3s;
+}
+.blob-3 {
+  width: 200px; height: 200px;
+  background: rgba(14, 165, 233, 0.2);
+  top: 30%; right: 15%;
+  animation-delay: -5s;
+}
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+/* Splash */
+.splash-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.3);
+}
+.dark .splash-overlay {
+  background: rgba(15, 23, 42, 0.5);
+}
+.splash-content {
+  text-align: center;
+  animation: slideUp 0.8s ease-out;
+}
+.splash-logo-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+}
+.splash-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+.splash-subtitle {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0 2rem;
+}
+.splash-loader {
+  width: 120px;
+  height: 3px;
+  background: var(--surface-border);
+  border-radius: 3px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+.splash-loader-bar {
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  border-radius: 3px;
+  animation: load 1.8s ease-in-out infinite;
+}
+@keyframes load {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Splash transition */
+.splash-fade-leave-active { transition: opacity 0.5s ease; }
+.splash-fade-leave-to { opacity: 0; }
+
+/* Card appear transition */
+.card-appear-enter-active { transition: opacity 0.6s ease, transform 0.6s ease; }
+.card-appear-enter-from { opacity: 0; transform: scale(0.95) translateY(20px); }
+
+/* Login card */
+.login-card {
+  position: relative;
+  z-index: 20;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 1rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+  background: var(--surface-card);
+}
+
+/* Brand panel */
+.brand-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3rem;
+  background: linear-gradient(135deg, #4F46E5, #3B82F6, #0EA5E9);
+  color: white;
+  overflow: hidden;
+}
+.brand-overlay {
+  position: absolute;
+  inset: 0;
+}
+.brand-overlay::before {
+  content: '';
+  position: absolute;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  top: -80px; left: -60px;
+  filter: blur(40px);
+}
+.brand-overlay::after {
+  content: '';
+  position: absolute;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  bottom: -40px; right: -20px;
+  filter: blur(30px);
+}
+.brand-content {
+  position: relative;
+  z-index: 2;
+}
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+.brand-logo-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand-name {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.brand-heading {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0 0 1rem;
+}
+.brand-desc {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  line-height: 1.6;
+  margin: 0 0 2rem;
+}
+.brand-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.brand-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+.feature-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Form panel */
+.form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem;
+}
+.form-inner {
+  width: 100%;
+  max-width: 380px;
+}
+.form-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.form-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+.form-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0 0;
+}
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.input-wrapper {
+  position: relative;
+}
+.input-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.form-input {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-input.with-icon {
+  padding-left: 2.5rem;
+}
+.form-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+.form-input::placeholder {
+  color: var(--text-muted);
+}
+.password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+}
+.password-toggle:hover {
+  color: var(--text-primary);
+}
+.submit-btn {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.25rem;
+}
+.submit-btn:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.35);
+  transform: translateY(-1px);
+}
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.form-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+.link {
+  font-size: 0.825rem;
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+.link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+.form-copyright {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .login-card {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+  .brand-panel {
+    display: none;
+  }
+  .form-panel {
+    padding: 2rem 1.5rem;
+  }
+}
+</style>

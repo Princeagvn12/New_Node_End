@@ -1,467 +1,369 @@
-<template>
-  <div class="space-y-6">
-    <div class="flex justify-between items-center">
-      <h2 class="text-xl font-semibold">Mes heures de cours</h2>
-      <div class="text-lg">
-        Total: <span class="font-semibold">{{ totalHours }}h</span>
-      </div>
-    </div>
-
-    <!-- Filtres -->
-    <div class="glass-card p-4 space-y-4">
-      <div class="flex justify-between items-center">
-        <h3 class="font-medium">Filtres</h3>
-        <button
-          @click="exportToPDF"
-          class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors flex items-center gap-2"
-        >
-          <span>📄</span> Exporter en PDF
-        </button>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-sm mb-1">Cours</label>
-          <select
-            v-model="selectedCourseId"
-            class="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
-          >
-            <option value="">Tous les cours</option>
-            <option
-              v-for="course in courses"
-              :key="course._id"
-              :value="course._id"
-            >
-              {{ course.title }}
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm mb-1">Date début</label>
-          <input
-            type="date"
-            v-model="dateRange.start"
-            class="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
-          />
-        </div>
-        <div>
-          <label class="block text-sm mb-1">Date fin</label>
-          <input
-            type="date"
-            v-model="dateRange.end"
-            class="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Graphiques -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="glass-card p-4">
-        <div style="height: 300px">
-          <Bar :data="chartData" :options="chartOptions" />
-        </div>
-      </div>
-
-      <div class="glass-card p-4">
-        <div style="height: 300px">
-          <Pie :data="pieChartData" :options="pieOptions" />
-        </div>
-      </div>
-    </div>
-
-    <!-- Résumé par cours -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div
-        v-for="(stats, courseId) in hoursByCourse"
-        :key="courseId"
-        class="glass-card p-4"
-      >
-        <h3 class="font-semibold">{{ stats.courseTitle }}</h3>
-        <div class="mt-2">
-          <div class="text-2xl font-bold">{{ stats.totalHours }}h</div>
-          <div class="text-sm text-gray-500">
-            {{ stats.entries.length }} séance(s)
-          </div>
-          <div class="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              class="h-full bg-blue-500"
-              :style="{ width: `${(stats.totalHours / totalHours) * 100}%` }"
-            ></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Tableau détaillé -->
-    <!-- <div class="glass-card overflow-hidden">
-      <Table :columns="columns" :data="filteredEntries" :loading="loading" class="w-full" />
-    </div> -->
-  </div>
-</template>
-
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useUserStore } from '../../store/user.store'
+import { ref, onMounted, computed, watch } from 'vue'
 import hourService from '../../services/hour.service'
-import courseService from '../../services/course.service'
-import Table from '../common/Table.vue'
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js'
-import { Bar, Pie } from 'vue-chartjs'
-import { jsPDF } from 'jspdf'
 import { showSuccess, showError } from '../../utils/toast'
+import { Bar, Doughnut } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  ArcElement
+} from 'chart.js'
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 
-// Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend)
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, ArcElement)
 
-const userStore = useUserStore()
-const loading = ref(false)
-const entries = ref([])
+const hours = ref([])
 const courses = ref([])
-const selectedCourseId = ref('')
-const dateRange = ref({ start: '', end: '' })
+const loading = ref(false)
+const form = ref({ courseId: '', date: new Date().toISOString().split('T')[0], hours: 1, description: '' })
 
-const normalizeCourses = (raw) => {
-  if (!Array.isArray(raw)) return []
-  return raw.map(c => {
-    if (!c) return null
-    if (typeof c === 'string') return { _id: String(c), title: String(c) }
-    const id = String(c._id || c.id || '')
-    return {
-      _id: id,
-      title: c.title || c.name || c.code || 'Cours',
-      description: c.description || '',
-      teacher: c.teacher || null,
-      students: Array.isArray(c.students) ? c.students.map(s => (s && (s._id || s)) || s).map(String) : []
-    }
-  }).filter(Boolean)
-}
+// Filters
+const filterCourse = ref('all')
+const startDate = ref('')
+const endDate = ref('')
 
-const normalizeEntries = (raw) => {
-  if (!Array.isArray(raw)) return []
-  return raw.map(e => {
-    const copy = { ...e }
-    // unwrap hour entry shapes (axios response / backend createResponse)
-    // possible shapes: { _id, course: ObjectId|{_id,title}, hours, date, description, teacher }
-    // or the whole axios response object => handled upstream
-    // normalize course to object with _id,title
-    if (copy.course && typeof copy.course === 'object') {
-      copy.course = {
-        _id: String(copy.course._id || copy.course.id || ''),
-        title: copy.course.title || copy.course.name || ''
-      }
-    } else if (copy.course) {
-      copy.course = { _id: String(copy.course), title: '' }
-    } else {
-      copy.course = { _id: '', title: '' }
-    }
-    copy._id = String(copy._id || copy.id || '')
-    copy.hours = Number(copy.hours || 0)
-    // ensure date is a proper ISO string / Date for filtering & display
-    copy.date = copy.date ? new Date(copy.date).toISOString() : new Date().toISOString()
-    return copy
-  })
-}
-
-// small helper to unwrap axios/backend shapes
-const unwrapPayload = (res) => {
-  if (!res) return []
-  if (Array.isArray(res)) return res
-  if (res.data && typeof res.data === 'object') {
-    // backend createResponse -> res.data.data.courses or res.data.data.hours
-    if (res.data.data && Array.isArray(res.data.data.courses)) return res.data.data.courses
-    if (res.data.data && Array.isArray(res.data.data.hours)) return res.data.data.hours
-    // some services return res.data.courses / res.data.hours
-    if (Array.isArray(res.data.courses)) return res.data.courses
-    if (Array.isArray(res.data.hours)) return res.data.hours
-    // interceptor already unwrapped -> res.data === array
-    if (Array.isArray(res.data)) return res.data
-  }
-  // sometimes service returns { success:true, data: { hours: [...] } }
-  if (res.success && res.data) {
-    if (Array.isArray(res.data.courses)) return res.data.courses
-    if (Array.isArray(res.data.hours)) return res.data.hours
-  }
-  return []
-}
-
-// Export PDF function
-const exportToPDF = async () => {
-  try {
-    const doc = new jsPDF()
-
-    // Add header
-    doc.setFontSize(20)
-    doc.text("Relevé d'heures de cours", 20, 20)
-    doc.setFontSize(12)
-    doc.text(`Étudiant: ${userStore.user?.name || 'N/A'}`, 20, 30)
-    doc.text(`Date d'édition: ${new Date().toLocaleDateString()}`, 20, 40)
-
-    // Add summary
-    doc.text('Résumé par cours:', 20, 60)
-    let y = 70
-    Object.values(hoursByCourse.value).forEach(course => {
-      doc.text(`${course.courseTitle}: ${course.totalHours}h (${course.entries.length} séances)`, 30, y)
-      y += 10
-    })
-
-    // Add detailed entries
-    y += 10
-    doc.text('Détail des séances:', 20, y)
-    y += 10
-    filteredEntries.value.forEach(entry => {
-      const course = courses.value.find(c => c._id === (entry.course._id || entry.course))
-      const line = `${new Date(entry.date).toLocaleDateString()} - ${course?.title || 'N/A'} - ${entry.hours}h`
-      doc.text(line, 30, y)
-      y += 7
-      if (y >= 280) {
-        doc.addPage()
-        y = 20
-      }
-    })
-
-    // Save PDF
-    doc.save(`heures-${userStore.user?.name || 'etudiant'}-${new Date().toISOString().split('T')[0]}.pdf`)
-    showSuccess('PDF généré avec succès')
-  } catch (e) {
-    console.error('Failed to generate PDF:', e)
-    showError('Erreur lors de la génération du PDF')
-  }
-}
-
-// Computed values for statistics
-const hoursByCourse = computed(() => {
-  const stats = {}
-  entries.value.forEach(entry => {
-    const courseId = String(entry.course && (entry.course._id || entry.course) || '')
-    if (!stats[courseId]) {
-      const course = courses.value.find(c => String(c._id) === courseId)
-      stats[courseId] = {
-        courseTitle: course?.title || (entry.course && entry.course.title) || 'Unknown Course',
-        totalHours: 0,
-        entries: []
-      }
-    }
-    stats[courseId].totalHours += Number(entry.hours || 0)
-    stats[courseId].entries.push(entry)
-  })
-  return stats
-})
-
-// Chart data
-const chartData = computed(() => {
-  const labels = Object.values(hoursByCourse.value).map(c => c.courseTitle)
-  const data = Object.values(hoursByCourse.value).map(c => c.totalHours)
-  return {
-    labels: labels || [],
-    datasets: [{
-      label: 'Heures par cours',
-      data: data || [],
-      backgroundColor: Array(labels.length).fill('rgba(75, 192, 192, 0.5)'),
-      borderColor: Array(labels.length).fill('rgb(75, 192, 192)'),
-      borderWidth: 1
-    }]
-  }
-})
-
-const chartOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      position: 'top',
-    },
-    title: {
-      display: true,
-      text: 'Répartition des heures par cours (graphique en barres)'
-    }
-  }
-}
-
-// <-- Ajout : pieChartData (assure que Pie reçoit toujours un objet) -->
-const pieChartData = computed(() => {
-  const labels = Object.values(hoursByCourse.value).map(c => c.courseTitle)
-  const data = Object.values(hoursByCourse.value).map(c => c.totalHours)
-  return {
-    labels: labels || [],
-    datasets: [{
-      label: 'Répartition heures',
-      data: data || [],
-      backgroundColor: [
-        'rgba(54, 162, 235, 0.6)',
-        'rgba(255, 99, 132, 0.6)',
-        'rgba(255, 206, 86, 0.6)',
-        'rgba(75, 192, 192, 0.6)',
-        'rgba(153, 102, 255, 0.6)',
-        'rgba(255, 159, 64, 0.6)'
-      ].slice(0, Math.max(1, labels.length)),
-      borderColor: [
-        'rgb(54, 162, 235)',
-        'rgb(255, 99, 132)',
-        'rgb(255, 206, 86)',
-        'rgb(75, 192, 192)',
-        'rgb(153, 102, 255)',
-        'rgb(255, 159, 64)'
-      ].slice(0, Math.max(1, labels.length)),
-      borderWidth: 1
-    }]
-  }
-})
-
-const filteredEntries = computed(() => {
-  let filtered = (entries.value || []).slice()
-
-  if (dateRange.value.start) {
-    const start = new Date(dateRange.value.start)
-    filtered = filtered.filter(entry => new Date(entry.date) >= start)
-  }
-  if (dateRange.value.end) {
-    const end = new Date(dateRange.value.end)
-    filtered = filtered.filter(entry => new Date(entry.date) <= end)
-  }
-  if (selectedCourseId.value) {
-    filtered = filtered.filter(entry => {
-      const courseId = (entry.course && (entry.course._id || entry.course)) || ''
-      return String(courseId) === String(selectedCourseId.value)
-    })
-  }
-
-  return filtered
-})
-
-const totalHours = computed(() => {
-  // sum totals from hoursByCourse (fallback to entries if empty)
-  const byCourse = Object.values(hoursByCourse.value || {})
-  if (byCourse.length) {
-    return byCourse.reduce((s, c) => s + Number(c.totalHours || 0), 0)
-  }
-  return (entries.value || []).reduce((s, e) => s + Number(e.hours || 0), 0)
-})
-
-// Table columns configuration
-const columns = [
-  {
-    key: 'courseTitle',
-    label: 'Cours',
-    formatter: (_, entry) => {
-      const courseId = entry.course._id || entry.course
-      const course = courses.value.find(c => c._id === courseId)
-      return course?.title || 'Cours inconnu'
-    }
-  },
-  {
-    key: 'hours',
-    label: 'Heures',
-    formatter: (value) => `${value}h`
-  },
-  {
-    key: 'date',
-    label: 'Date',
-    formatter: (value) => new Date(value).toLocaleDateString()
-  },
-  { key: 'description', label: 'Description' }
-]
-
-// Load data
-const load = async () => {
+const loadData = async () => {
   loading.value = true
   try {
-    // Récupère heures et cours (service unwrap déjà tolérant)
-    const [rawHoursRes, rawCoursesRes] = await Promise.all([
-      hourService.getMy().catch(() => []),
-      courseService.getAll().catch(() => [])
+    const [hData, cData] = await Promise.all([
+      hourService.getStudentHours(),
+      hourService.getStudentCourses()
     ])
-
-    const rawHours = unwrapPayload(rawHoursRes)
-    const rawCourses = unwrapPayload(rawCoursesRes)
-
-    // Normalise les cours reçus
-    let normalizedCourses = normalizeCourses(rawCourses)
-
-    // Fallback : si aucun cours retourné (ou liste incomplète), refetch full list
-    if (!normalizedCourses.length) {
-      const fallbackRes = await courseService.getAll().catch(() => [])
-      normalizedCourses = normalizeCourses(unwrapPayload(fallbackRes))
-    }
-
-    // Normalise les entrées d'heures
-    const allEntries = normalizeEntries(rawHours)
-
-    // Récupère les ids de cours référencés par les entrées d'heures
-    const courseIdsFromEntries = new Set(allEntries.map(e => String((e.course && (e.course._id || e.course)) || '')).filter(Boolean))
-
-    // Pour chaque id manquant, tente de récupérer le cours via getById (pour assurer présence dans la liste)
-    const missingIds = [...courseIdsFromEntries].filter(id => !normalizedCourses.some(c => String(c._id) === id))
-    if (missingIds.length) {
-      const fetched = await Promise.all(missingIds.map(id => courseService.getById(id).catch(() => null)))
-      const fetchedNorm = normalizeCourses(fetched.filter(Boolean))
-      normalizedCourses = normalizedCourses.concat(fetchedNorm)
-    }
-
-    // Si l'utilisateur est étudiant, filtre côté client (sécurité/fallback)
-    if (userStore.user?.role === 'etudiant') {
-      const uid = String(userStore.user?._id || userStore.user?.id || '')
-      normalizedCourses = normalizedCourses.filter(c =>
-        Array.isArray(c.students) && c.students.some(s => String(s) === uid)
-      )
-    }
-
-    courses.value = normalizedCourses
-
-    // Garde seulement les entrées liées aux cours qu'on expose à l'étudiant
-    const validCourseIds = new Set(courses.value.map(c => String(c._id)))
-    entries.value = allEntries.filter(e => {
-      const cid = String((e.course && (e.course._id || e.course)) || '')
-      return validCourseIds.has(cid)
-    })
-
-    // Assure que tous les cours affectés apparaissent dans le graphe même s'il n'y a pas d'heures (ajoute des entrées 0h)
-    const existingCourseIds = new Set(entries.value.map(e => String((e.course && (e.course._id || e.course)) || '')))
-    courses.value.forEach(c => {
-      if (!existingCourseIds.has(String(c._id))) {
-        entries.value.push({
-          _id: `zero-${c._id}`,
-          course: { _id: String(c._id), title: c.title },
-          hours: 0,
-          date: new Date().toISOString(),
-          description: ''
-        })
-      }
-    })
+    hours.value = hData
+    courses.value = cData
   } catch (e) {
-    console.error('Failed to load student hours:', e)
+    showError('Fails to load dashboard')
   } finally {
     loading.value = false
   }
 }
 
-onMounted(load)
+const filteredHours = computed(() => {
+  return hours.value.filter(h => {
+    const matchesCourse = filterCourse.value === 'all' || h.course?._id === filterCourse.value
+    const matchesStart = !startDate.value || new Date(h.date) >= new Date(startDate.value)
+    const matchesEnd = !endDate.value || new Date(h.date) <= new Date(endDate.value)
+    return matchesCourse && matchesStart && matchesEnd
+  })
+})
+
+const totalHoursValue = computed(() => {
+  return filteredHours.value.reduce((acc, curr) => acc + curr.hours, 0)
+})
+
+const courseStats = computed(() => {
+  const stats = {}
+  courses.value.forEach(c => {
+    stats[c._id] = { name: c.name, hours: 0, color: c.color || '#3B82F6' }
+  })
+  hours.value.forEach(h => {
+    if (stats[h.course?._id]) stats[h.course?._id].hours += h.hours
+  })
+  return Object.values(stats)
+})
+
+// Chart Data
+const barData = computed(() => ({
+  labels: courseStats.value.map(s => s.name),
+  datasets: [{
+    label: 'Heures par cours',
+    data: courseStats.value.map(s => s.hours),
+    backgroundColor: courseStats.value.map(s => s.color + 'CC'),
+    borderColor: courseStats.value.map(s => s.color),
+    borderWidth: 1,
+    borderRadius: 6
+  }]
+}))
+
+const donutData = computed(() => ({
+  labels: courseStats.value.map(s => s.name),
+  datasets: [{
+    data: courseStats.value.map(s => s.hours),
+    backgroundColor: courseStats.value.map(s => s.color + 'CC'),
+    borderColor: 'white',
+    borderWidth: 2
+  }]
+}))
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false }
+  },
+  scales: {
+    y: { beginAtZero: true, grid: { display: true, color: '#E2E8F0' } },
+    x: { grid: { display: false } }
+  }
+}
+
+const donutOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+  },
+  cutout: '70%'
+}
+
+const submitHour = async () => {
+  if (!form.value.courseId || !form.value.hours) {
+    showError('Veuillez remplir les champs requis')
+    return
+  }
+  try {
+    await hourService.addHour(form.value)
+    showSuccess('Heures enregistrées')
+    form.value = { courseId: '', date: new Date().toISOString().split('T')[0], hours: 1, description: '' }
+    await loadData()
+  } catch (e) {
+    showError('Erreur lors de l\'ajout')
+  }
+}
+
+const exportPDF = () => {
+  const doc = new jsPDF()
+  doc.setFontSize(18)
+  doc.text('Rapport d\'Heures de Cours', 14, 22)
+  doc.setFontSize(11)
+  doc.text(`Total: ${totalHoursValue.value}h`, 14, 30)
+
+  const tableData = filteredHours.value.map(h => [
+    new Date(h.date).toLocaleDateString(),
+    h.course?.name || 'Inconnu',
+    h.hours + 'h',
+    h.description || '—'
+  ])
+
+  doc.autoTable({
+    startY: 35,
+    head: [['Date', 'Cours', 'Heures', 'Description']],
+    body: tableData,
+    theme: 'striped',
+    headStyles: { fillColor: [59, 130, 246] }
+  })
+
+  doc.save('mes-heures.pdf')
+}
+
+onMounted(loadData)
 </script>
 
+<template>
+  <div class="student-hours">
+    <div class="side-panel">
+      <!-- Title Section -->
+      <div class="mb-6">
+        <h1 class="page-title">Hours Management</h1>
+        <p class="page-subtitle">Record your daily learning activities.</p>
+      </div>
+
+      <!-- Log New Hours Form -->
+      <div class="glass-card p-6 mb-6">
+        <div class="flex items-center gap-2 mb-4">
+          <i class="pi pi-plus-circle text-blue-500 font-bold"></i>
+          <h2 class="text-lg font-bold">Log New Hours</h2>
+        </div>
+        <div class="space-y-4">
+          <div class="form-field">
+            <label>Course</label>
+            <select v-model="form.courseId" class="field-select">
+              <option value="">Select a course</option>
+              <option v-for="c in courses" :key="c._id" :value="c._id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="form-field">
+              <label>Date</label>
+              <input v-model="form.date" type="date" class="field-select" />
+            </div>
+            <div class="form-field">
+              <label>Hours</label>
+              <input v-model.number="form.hours" type="number" step="0.5" class="field-select" />
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Description (Optional)</label>
+            <textarea v-model="form.description" class="field-textarea" placeholder="What did you work on?"></textarea>
+          </div>
+          <button @click="submitHour" class="btn-premium btn-primary w-full">Save Entry</button>
+        </div>
+      </div>
+
+      <!-- Total Hours Mini Card -->
+      <div class="glass-card p-6 flex flex-col gap-2 relative overflow-hidden stats-accent-blue">
+        <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Logged Hours</span>
+        <span class="text-4xl font-extrabold text-blue-600">{{ totalHoursValue }}h</span>
+        <i class="pi pi-clock absolute right-6 top-1/2 -translate-y-1/2 text-4xl opacity-10"></i>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-panel">
+      <!-- Top Actions -->
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-extrabold">Mes heures de cours</h2>
+        <button @click="exportPDF" class="btn-premium export-btn">
+          <i class="pi pi-file-pdf"></i>
+          Exporter en PDF
+        </button>
+      </div>
+
+      <!-- Filters Row -->
+      <div class="glass-card p-6 mb-6 flex flex-wrap gap-6">
+        <div class="flex-1 min-w-[200px]">
+          <div class="flex items-center gap-2 mb-2">
+            <i class="pi pi-filter text-xs text-gray-400"></i>
+            <label class="text-xs font-bold text-gray-500 uppercase">Cours</label>
+          </div>
+          <select v-model="filterCourse" class="field-select text-sm p-2">
+            <option value="all">Tous les cours</option>
+            <option v-for="c in courses" :key="c._id" :value="c._id">{{ c.name }}</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[150px]">
+          <label class="text-xs font-bold text-gray-500 uppercase block mb-2">Date Début</label>
+          <input v-model="startDate" type="date" class="field-select text-sm p-2" />
+        </div>
+        <div class="flex-1 min-w-[150px]">
+          <label class="text-xs font-bold text-gray-500 uppercase block mb-2">Date Fin</label>
+          <input v-model="endDate" type="date" class="field-select text-sm p-2" />
+        </div>
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="glass-card p-6 h-[350px] flex flex-col">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xs font-bold text-gray-500 uppercase">Répartition des heures (Bâtons)</h3>
+            <i class="pi pi-chart-bar text-gray-300"></i>
+          </div>
+          <div class="flex-1 relative">
+            <Bar :data="barData" :options="chartOptions" />
+          </div>
+        </div>
+        <div class="glass-card p-6 h-[350px] flex flex-col">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xs font-bold text-gray-500 uppercase">Aperçu Global (Cercle)</h3>
+            <i class="pi pi-chart-pie text-gray-300"></i>
+          </div>
+          <div class="flex-1 relative">
+            <Doughnut :data="donutData" :options="donutOptions" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Course Progress Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-for="stat in courseStats" :key="stat.name" class="glass-card p-6 flex flex-col gap-3 relative overflow-hidden group">
+          <div class="accent-top" :style="{ backgroundColor: stat.color }"></div>
+          <div class="flex flex-col">
+            <span class="text-sm font-bold text-gray-700">{{ stat.name }}</span>
+            <span class="text-2xl font-extrabold" :style="{ color: stat.color }">{{ stat.hours }}h</span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-1.5 mt-2">
+            <div class="h-full rounded-full transition-all duration-500" 
+                 :style="{ width: Math.min((stat.hours/100)*100, 100) + '%', backgroundColor: stat.color }"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <style scoped>
-.glass-card {
-  background-color: rgba(255,255,255,0.6);
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  border: 1px solid rgba(229,231,235,1);
-  backdrop-filter: blur(6px);
+.student-hours {
+  display: flex;
+  gap: 2rem;
+  padding-bottom: 3rem;
+  align-items: flex-start;
 }
 
-.chart-container {
-  position: relative;
-  height: 300px;
+.side-panel {
+  width: 320px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 100px;
 }
 
-.form-input,
-.form-select {
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  border: 1px solid #d1d5db;
-  background-color: white;
+.main-panel {
+  flex: 1;
 }
 
-.bg-blue-500 { background-color: #3b82f6; }
-.bg-blue-600 { background-color: #2563eb; }
-.hover\:bg-blue-600:hover { background-color: #2563eb; }
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
 
+.page-subtitle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-field label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.field-select, .field-textarea {
+  border: 1px solid var(--surface-border);
+  background: var(--surface-bg);
+  border-radius: var(--radius-sm);
+  padding: 0.625rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  width: 100%;
+}
+
+.field-textarea {
+  height: 100px;
+  resize: none;
+}
+
+.stats-accent-blue::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--color-primary);
+}
+
+.export-btn {
+  background: #EFF6FF;
+  color: var(--color-primary);
+  border: 1px solid #BFDBFE;
+}
+
+.accent-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+}
+
+@media (max-width: 1280px) {
+  .student-hours { flex-direction: column; }
+  .side-panel { width: 100%; position: static; }
+}
+
+@media (max-width: 768px) {
+  .grid { grid-template-columns: 1fr; }
+}
 </style>

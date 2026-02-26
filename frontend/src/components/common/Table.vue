@@ -1,60 +1,212 @@
 <script setup>
+import { ref, computed } from 'vue'
+import EmptyState from './EmptyState.vue'
+
 const props = defineProps({
   columns: { type: Array, default: () => [] },
   rows: { type: Array, default: () => [] },
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  searchable: { type: Boolean, default: true },
+  emptyIcon: { type: String, default: 'pi pi-inbox' },
+  emptyTitle: { type: String, default: 'No data yet' },
+  emptyMessage: { type: String, default: 'There are no items to display.' }
+})
+
+const searchQuery = ref('')
+
+const filteredRows = computed(() => {
+  if (!searchQuery.value.trim()) return props.rows
+  const q = searchQuery.value.toLowerCase()
+  return props.rows.filter(row =>
+    props.columns.some(col => {
+      const val = row[col.key]
+      if (val == null) return false
+      return String(val).toLowerCase().includes(q)
+    })
+  )
 })
 </script>
 
 <template>
-  <div class="overflow-x-auto bg-white/60 dark:bg-slate-800/60 rounded-lg shadow-sm">
-    <table class="min-w-full">
-      <thead>
-        <tr class="border-b border-gray-200 dark:border-gray-700">
-          <th v-for="col in columns" :key="col.key" 
-            class="text-left p-4 text-sm font-medium text-gray-600 dark:text-gray-300">
-            {{ col.label }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-if="loading" class="animate-pulse">
-          <td :colspan="columns.length" class="p-4 text-center text-gray-500">
-            Loading...
-          </td>
-        </tr>
-        <template v-else>
-          <tr v-for="row in rows" :key="row._id" 
-            class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-slate-700/50">
-            <td v-for="col in columns" :key="col.key + row._id" class="p-4 text-sm">
-              <slot :name="'cell-' + col.key" :row="row" :value="row[col.key]">
-                <template v-if="col.key === 'isActive'">
-                  <span :class="row.isActive ? 'text-green-500' : 'text-red-500'">
-                    {{ row.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </template>
-                <template v-else>
-                  {{ row[col.key] }}
-                </template>
-              </slot>
-            </td>
-            <td v-if="$slots.actions" class="p-4 text-sm">
-              <slot name="actions" :row="row" />
+  <div class="table-wrapper">
+    <!-- Search bar -->
+    <div v-if="searchable && rows.length > 0" class="table-toolbar">
+      <div class="search-box">
+        <i class="pi pi-search search-icon"></i>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search..."
+          class="search-input"
+        />
+      </div>
+      <div class="table-toolbar-right">
+        <slot name="toolbar" />
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th v-for="col in columns" :key="col.key">
+              {{ col.label }}
+            </th>
+            <th v-if="$slots.actions" class="actions-header">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Loading skeleton -->
+          <tr v-if="loading">
+            <td :colspan="columns.length + ($slots.actions ? 1 : 0)" class="loading-cell">
+              <div class="loading-bar"></div>
+              <div class="loading-bar short"></div>
+              <div class="loading-bar"></div>
             </td>
           </tr>
-          <tr v-if="!rows.length">
-            <td :colspan="columns.length" class="p-4 text-center text-gray-500">
-              No data available
+
+          <!-- Data rows -->
+          <template v-else-if="filteredRows.length">
+            <tr v-for="row in filteredRows" :key="row._id" class="data-row">
+              <td v-for="col in columns" :key="col.key + row._id">
+                <slot :name="'cell-' + col.key" :row="row" :value="row[col.key]">
+                  <template v-if="col.key === 'isActive'">
+                    <span class="status-badge" :class="row.isActive ? 'active' : 'inactive'">
+                      <span class="dot"></span>
+                      {{ row.isActive ? 'Active' : 'Inactive' }}
+                    </span>
+                  </template>
+                  <template v-else>
+                    {{ row[col.key] }}
+                  </template>
+                </slot>
+              </td>
+              <td v-if="$slots.actions" class="actions-cell">
+                <slot name="actions" :row="row" />
+              </td>
+            </tr>
+          </template>
+
+          <!-- Empty state -->
+          <tr v-else>
+            <td :colspan="columns.length + ($slots.actions ? 1 : 0)">
+              <EmptyState
+                :icon="emptyIcon"
+                :title="emptyTitle"
+                :message="emptyMessage"
+              />
             </td>
           </tr>
-        </template>
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <style scoped>
-table { border-collapse: collapse; width: 100%; }
-thead th { background: transparent; }
+.table-wrapper {
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--surface-border);
+  gap: 0.75rem;
+}
+.search-box {
+  position: relative;
+  max-width: 280px;
+  width: 100%;
+}
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-bg);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-input:focus {
+  border-color: var(--color-primary);
+}
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+.table-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table thead th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--surface-bg);
+  border-bottom: 1px solid var(--surface-border);
+  white-space: nowrap;
+}
+.actions-header {
+  text-align: right !important;
+}
+.data-row {
+  transition: background 0.15s ease;
+}
+.data-row:hover {
+  background: var(--surface-hover);
+}
+.data-row td {
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--surface-border);
+}
+.actions-cell {
+  text-align: right;
+}
+.loading-cell {
+  padding: 1.5rem 1rem;
+}
+.loading-bar {
+  height: 12px;
+  background: var(--surface-hover);
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.loading-bar.short {
+  width: 60%;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
 </style>
-<!-- placeholder: frontend/src/components/common/Table.vue -->
