@@ -25,9 +25,28 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(morgan('dev'));
 
-// CORS: allow credentials and the configured client origin
+// CORS: allow credentials and only explicit client origins
+const allowedOrigins = (
+  process.env.CLIENT_ORIGIN || 'http://localhost:5173,https://gestion-learn.vercel.app'
+)
+  .split(',')
+  .map(origin => origin.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.CLIENT_ORIGIN || '*',
+  origin: (origin, callback) => {
+    // Allow non-browser clients (no Origin header)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const normalizedOrigin = origin.trim().replace(/\/$/, '');
+    if (allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
   credentials: true,
 };
 app.use(cors(corsOptions));
