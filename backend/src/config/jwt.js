@@ -1,8 +1,16 @@
 const jwt = require('jsonwebtoken');
 
-// Secrets from environment
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_TOKEN_SECRET || 'your-secret-access-key';
-const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_TOKEN_SECRET || 'your-secret-refresh-key';
+function getRequiredEnv(name) {
+  const value = process.env[name];
+  if (!value || !value.trim()) {
+    throw new Error(`${name} is required and must be set in environment`);
+  }
+  return value;
+}
+
+// Secrets from environment (no hardcoded fallbacks)
+const ACCESS_TOKEN_SECRET = getRequiredEnv('JWT_ACCESS_TOKEN_SECRET');
+const REFRESH_TOKEN_SECRET = getRequiredEnv('JWT_REFRESH_TOKEN_SECRET');
 
 // Token TTL from environment
 const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || '15m';
