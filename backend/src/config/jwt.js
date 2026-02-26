@@ -10,6 +10,7 @@ const REFRESH_TOKEN_TTL = process.env.REFRESH_TOKEN_TTL || '7d';
 
 // Cookie security settings
 const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
+const COOKIE_SAME_SITE = (process.env.COOKIE_SAME_SITE || (COOKIE_SECURE ? 'none' : 'lax')).toLowerCase();
 
 /**
  * Generate access token
@@ -77,7 +78,7 @@ function createCookieOptions(tokenType = 'access') {
   return {
     httpOnly: true,
     secure: COOKIE_SECURE,
-    sameSite: 'lax',
+    sameSite: COOKIE_SAME_SITE,
     maxAge,
     path: '/'
   };
@@ -89,6 +90,7 @@ module.exports = {
   ACCESS_TOKEN_TTL,
   REFRESH_TOKEN_TTL,
   COOKIE_SECURE,
+  COOKIE_SAME_SITE,
   generateAccessToken,
   generateRefreshToken,
   verifyAccessToken,

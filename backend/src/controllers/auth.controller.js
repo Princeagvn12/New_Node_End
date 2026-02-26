@@ -69,16 +69,22 @@ async function login(req, res, next) {
     res.cookie("accessToken", accessToken, createCookieOptions('access'));
     res.cookie("refreshToken", refreshToken, createCookieOptions('refresh'));
 
-    // Return user profile without sensitive data
+    // Return user profile and tokens (token fallback for clients where cookies are blocked)
+    const safeUser = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      department: user.department,
+      isActive: user.isActive,
+    };
+
     res.json({
       success: true,
       data: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        department: user.department,
-        isActive: user.isActive,
+        user: safeUser,
+        accessToken,
+        refreshToken,
       },
     });
   } catch (error) {
@@ -93,7 +99,10 @@ async function login(req, res, next) {
  */
 async function refresh(req, res, next) {
   try {
-    const refreshToken = req.cookies["refreshToken"];
+    const refreshToken =
+      req.cookies["refreshToken"] ||
+      req.body?.refreshToken ||
+      req.headers["x-refresh-token"];
     if (!refreshToken) {
       return res.status(401).json({
         success: false,
@@ -119,6 +128,7 @@ async function refresh(req, res, next) {
 
     res.json({
       success: true,
+      data: { accessToken },
       message: "Access token renewed",
     });
   } catch (error) {

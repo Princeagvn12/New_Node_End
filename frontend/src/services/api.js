@@ -1,7 +1,29 @@
 import axios from 'axios'
 import router from '../router'
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
+const ACCESS_TOKEN_KEY = 'accessToken'
+const REFRESH_TOKEN_KEY = 'refreshToken'
+
+const baseURL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:4000/api' : '/api')
+
+const canUseStorage = () => typeof window !== 'undefined' && !!window.localStorage
+
+export const getAccessToken = () => (canUseStorage() ? localStorage.getItem(ACCESS_TOKEN_KEY) : null)
+export const getRefreshToken = () => (canUseStorage() ? localStorage.getItem(REFRESH_TOKEN_KEY) : null)
+
+export const setAuthTokens = ({ accessToken, refreshToken }) => {
+  if (!canUseStorage()) return
+  if (accessToken) localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+  if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+}
+
+export const clearAuthTokens = () => {
+  if (!canUseStorage()) return
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+}
 
 const api = axios.create({
   baseURL,
@@ -11,12 +33,20 @@ const api = axios.create({
   }
 })
 
-// Flag pour éviter les boucles infinies de refresh
+api.interceptors.request.use((config) => {
+  const token = getAccessToken()
+  if (token) {
+    config.headers = config.headers || {}
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 let isRefreshing = false
 let failedQueue = []
 
 const processQueue = (error, token = null) => {
-  failedQueue.forEach(prom => {
+  failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error)
     } else {
@@ -26,10 +56,8 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
-// Response interceptor
 api.interceptors.response.use(
   (response) => {
-    // Déballer automatiquement { success, data, message } du backend
     if (response.data && typeof response.data === 'object' && 'data' in response.data) {
       response.data = response.data.data
     }
@@ -42,31 +70,46 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // Gérer les 401 avec refresh automatique
     if (
-      error.response.status === 401 && 
-      !originalRequest._retry && 
+      error.response.status === 401 &&
+      !originalRequest._retry &&
       !originalRequest.url.includes('/auth/login') &&
       !originalRequest.url.includes('/auth/refresh')
     ) {
-      
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
-        }).then(() => api(originalRequest)).catch(err => Promise.reject(err))
+        }).then(() => api(originalRequest)).catch((err) => Promise.reject(err))
       }
 
       originalRequest._retry = true
       isRefreshing = true
 
       try {
-        await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true })
-        processQueue(null, null)
+        const refreshToken = getRefreshToken()
+        const refreshResponse = await axios.post(
+          `${baseURL}/auth/refresh`,
+          refreshToken ? { refreshToken } : {},
+          { withCredentials: true }
+        )
+
+        const refreshPayload =
+          refreshResponse.data && typeof refreshResponse.data === 'object' && 'data' in refreshResponse.data
+            ? refreshResponse.data.data
+            : refreshResponse.data
+
+        if (refreshPayload?.accessToken) {
+          setAuthTokens({ accessToken: refreshPayload.accessToken, refreshToken })
+        }
+
+        processQueue(null, refreshPayload?.accessToken || null)
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)
+        clearAuthTokens()
+
         if (router.currentRoute.value.name !== 'Login') {
-          router.push({ 
+          router.push({
             name: 'Login',
             query: { redirect: router.currentRoute.value.fullPath }
           })
