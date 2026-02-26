@@ -1,7 +1,7 @@
 # Documentation API - Guide de Test
 
 ## Configuration de Base
-```text
+```
 BASE_URL: http://localhost:4000/api
 ```
 
