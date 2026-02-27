@@ -4,8 +4,8 @@ import hourService from '../services/hour.service'
 import { useUserStore } from '../store/user.store'
 import { showSuccess, showError } from '../utils/toast'
 import FormField from '../components/common/FormField.vue'
-import Table from '../components/common/Table.vue'
-import PageHeader from '../components/common/PageHeader.vue'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 
 const userStore = useUserStore()
 const hours = ref([])
@@ -18,13 +18,6 @@ const form = ref({ courseId: '', studentId: '', date: new Date().toISOString().s
 // Filters
 const filterCourse = ref('all')
 const filterStudent = ref('all')
-
-const columns = [
-  { key: 'date', label: 'Date' },
-  { key: 'student', label: 'Student' },
-  { key: 'course', label: 'Course' },
-  { key: 'hours_val', label: 'Hours' }
-]
 
 const stats = computed(() => [
   { label: 'Total Entries', value: hours.value.length, icon: 'pi pi-list' },
@@ -44,12 +37,12 @@ const load = async () => {
   try {
     const [hData, cData, sData] = await Promise.all([
       hourService.getAll(),
-      hourService.getStudentCourses(), // Admin version gets all for relevant depts
-      hourService.getStudentHours()    // Need list of students
+      hourService.getStudentCourses(),
+      hourService.getStudentHours()
     ])
-    // The service might need adjustment but assuming standard CRUD list
     hours.value = hData || []
     courses.value = cData || []
+    students.value = sData || []
   } catch (e) {
     showError('Failed to load data')
   } finally {
@@ -162,25 +155,55 @@ onMounted(load)
         </div>
 
         <!-- Table -->
-        <div class="glass-card overflow-hidden">
-          <Table :columns="columns" :rows="filteredHours" :loading="loading">
-            <template #cell-date="{ value }">{{ new Date(value).toLocaleDateString() }}</template>
-            <template #cell-student="{ row }">
-              <div class="flex items-center gap-2">
-                <div class="avatar-initials tiny">{{ row.student?.name?.[0] || '?' }}</div>
-                <span class="text-sm font-medium">{{ row.student?.name || 'Inconnu' }}</span>
+        <div class="table-container glass-card">
+          <DataTable 
+            :value="filteredHours" 
+            :loading="loading" 
+            stripedRows 
+            removableSort
+            responsiveLayout="scroll"
+            class="p-datatable-sm"
+          >
+            <Column field="date" header="Date" sortable>
+              <template #body="{ data }">
+                {{ new Date(data.date).toLocaleDateString() }}
+              </template>
+            </Column>
+
+            <Column header="Student" sortable sortField="student.name">
+              <template #body="{ data }">
+                <div class="flex items-center gap-2">
+                  <div class="avatar-initials tiny">{{ data.student?.name?.[0] || '?' }}</div>
+                  <span class="text-sm font-medium">{{ data.student?.name || 'Inconnu' }}</span>
+                </div>
+              </template>
+            </Column>
+
+            <Column header="Course" sortable sortField="course.name">
+              <template #body="{ data }">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-tighter">{{ data.course?.name || 'No Course' }}</span>
+              </template>
+            </Column>
+
+            <Column field="hours" header="Hours" sortable>
+              <template #body="{ data }">
+                <span class="font-bold text-blue-600">{{ data.hours }}h</span>
+              </template>
+            </Column>
+
+            <Column header="Actions" headerStyle="text-align: right" bodyStyle="text-align: right">
+              <template #body="{ data }">
+                <button @click="deleteHour(data)" class="action-btn delete" title="Remove Entry"><i class="pi pi-trash"></i></button>
+              </template>
+            </Column>
+
+            <template #empty>
+              <div class="p-4 text-center text-muted">
+                <i class="pi pi-list block mb-2" style="font-size: 2rem"></i>
+                No entries found
               </div>
             </template>
-            <template #cell-course="{ row }">
-              <span class="text-xs font-bold text-gray-500 uppercase tracking-tighter">{{ row.course?.name || 'No Course' }}</span>
-            </template>
-            <template #cell-hours_val="{ value }">
-              <span class="font-bold text-blue-600">{{ value }}h</span>
-            </template>
-            <template #actions="{ row }">
-              <button @click="deleteHour(row)" class="action-btn delete" title="Remove Entry"><i class="pi pi-trash"></i></button>
-            </template>
-          </Table>
+          </DataTable>
         </div>
       </div>
     </div>
@@ -208,7 +231,7 @@ onMounted(load)
 
 .field-select, .field-textarea, .field-select-mini { border: 1px solid var(--surface-border); background: var(--surface-bg); border-radius: var(--radius-sm); padding: 0.625rem; outline: none; font-size: 0.875rem; color: var(--text-primary); }
 .field-select-mini { padding: 0.5rem; min-width: 150px; }
-.field-textarea { height: 80px; resize: none; }
+.field-textarea { height: 80px; resize: none; color: var(--text-primary); }
 
 .avatar-initials.tiny { width: 24px; height: 24px; font-size: 0.65rem; }
 

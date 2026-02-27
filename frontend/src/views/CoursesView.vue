@@ -7,7 +7,8 @@ import { useUserStore } from '../store/user.store'
 import { showSuccess, showError } from '../utils/toast'
 import PageHeader from '../components/common/PageHeader.vue'
 import FormField from '../components/common/FormField.vue'
-import Table from '../components/common/Table.vue'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 
 const userStore = useUserStore()
 const courses = ref([])
@@ -25,14 +26,6 @@ const selectedCredits = ref('all')
 const form = ref({ name: '', code: '', description: '', department: '', teacher: '', credits: 1 })
 
 const canManage = computed(() => ['admin', 'rh', 'formateur_principal'].includes(userStore.user?.role))
-
-const columns = [
-  { key: 'course', label: 'Course Details' },
-  { key: 'department', label: 'Department' },
-  { key: 'teacher', label: 'Assigned Teacher' },
-  { key: 'credits', label: 'Credits' },
-  { key: 'status', label: 'Status' }
-]
 
 const stats = computed(() => [
   { label: 'Active Courses', value: courses.value.length, icon: 'pi pi-book', trend: '+2 from last semester', trendType: 'up' },
@@ -160,46 +153,72 @@ onMounted(load)
 
     <!-- Courses Table -->
     <div class="table-container glass-card">
-      <Table :columns="columns" :rows="filteredCourses" :loading="loading">
-        <template #cell-course="{ row }">
-          <div class="course-cell">
-            <div class="initials-square">{{ getInitials(row.name) }}</div>
-            <div class="course-text">
-              <span class="course-name">{{ row.name }}</span>
-              <span class="course-code">{{ row.code }} - {{ row.description?.substring(0, 20) }}...</span>
+      <DataTable 
+        :value="filteredCourses" 
+        :loading="loading" 
+        stripedRows 
+        removableSort
+        responsiveLayout="scroll"
+        class="p-datatable-sm"
+      >
+        <Column header="Course Details" sortable sortField="name">
+          <template #body="{ data }">
+            <div class="course-cell">
+              <div class="initials-square">{{ getInitials(data.name) }}</div>
+              <div class="course-text">
+                <span class="course-name">{{ data.name }}</span>
+                <span class="course-code">{{ data.code }} - {{ data.description?.substring(0, 20) }}...</span>
+              </div>
             </div>
+          </template>
+        </Column>
+
+        <Column header="Department" sortable sortField="department.name">
+          <template #body="{ data }">
+            <span class="role-badge etudiant">{{ data.department?.name || 'Unassigned' }}</span>
+          </template>
+        </Column>
+
+        <Column header="Assigned Teacher" sortable sortField="teacher.name">
+          <template #body="{ data }">
+            <div class="teacher-cell" v-if="data.teacher">
+              <div class="avatar-initials tiny">{{ getInitials(data.teacher.name || '') }}</div>
+              <span class="teacher-name">{{ data.teacher.name }}</span>
+            </div>
+            <span v-else class="unassigned-text">Unassigned</span>
+          </template>
+        </Column>
+
+        <Column field="credits" header="Credits" sortable>
+          <template #body="{ data }">
+            <span class="credits-text">{{ data.credits }} ECTS</span>
+          </template>
+        </Column>
+
+        <Column header="Status" sortable sortField="teacher">
+          <template #body="{ data }">
+            <span class="status-badge" :class="data.teacher ? 'active' : 'inactive'">
+              {{ data.teacher ? 'Active' : 'Draft' }}
+            </span>
+          </template>
+        </Column>
+
+        <Column header="Actions" headerStyle="text-align: right" bodyStyle="text-align: right">
+          <template #body="{ data }">
+            <div v-if="canManage" class="actions-group">
+              <button @click="editCourse(data)" class="action-btn edit" title="Edit"><i class="pi pi-pencil"></i></button>
+              <button @click="deleteCourse(data)" class="action-btn delete" title="Delete"><i class="pi pi-trash"></i></button>
+            </div>
+          </template>
+        </Column>
+
+        <template #empty>
+          <div class="p-4 text-center text-muted">
+            <i class="pi pi-book block mb-2" style="font-size: 2rem"></i>
+            No courses found
           </div>
         </template>
-        
-        <template #cell-department="{ value }">
-          <span class="role-badge etudiant">{{ value?.name || 'Unassigned' }}</span>
-        </template>
-        
-        <template #cell-teacher="{ row }">
-          <div class="teacher-cell" v-if="row.teacher">
-            <div class="avatar-initials tiny">{{ getInitials(row.teacher.name || '') }}</div>
-            <span class="teacher-name">{{ row.teacher.name }}</span>
-          </div>
-          <span v-else class="unassigned-text">Unassigned</span>
-        </template>
-        
-        <template #cell-credits="{ value }">
-          <span class="credits-text">{{ value }} ECTS</span>
-        </template>
-        
-        <template #cell-status="{ row }">
-          <span class="status-badge" :class="row.teacher ? 'active' : 'inactive'">
-            {{ row.teacher ? 'Active' : 'Draft' }}
-          </span>
-        </template>
-        
-        <template #actions="{ row }">
-          <div v-if="canManage" class="actions-group">
-            <button @click="editCourse(row)" class="action-btn edit" title="Edit"><i class="pi pi-pencil"></i></button>
-            <button @click="deleteCourse(row)" class="action-btn delete" title="Delete"><i class="pi pi-trash"></i></button>
-          </div>
-        </template>
-      </Table>
+      </DataTable>
     </div>
 
     <!-- Bottom Stats Grid -->

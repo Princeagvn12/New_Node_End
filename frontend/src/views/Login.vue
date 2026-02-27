@@ -3,6 +3,9 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { showSuccess, showError } from '../utils/toast'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
+import Button from 'primevue/button'
 
 const router = useRouter()
 const route = useRoute()
@@ -14,17 +17,6 @@ const form = ref({
 })
 
 const loading = ref(false)
-const showPassword = ref(false)
-
-// new: control the welcome splash
-const showSplash = ref(true)
-
-onMounted(() => {
-  // duration of the splash before showing the form (ms)
-  setTimeout(() => {
-    showSplash.value = false
-  }, 2000)
-})
 
 const handleLogin = async () => {
   if (!form.value.email || !form.value.password) {
@@ -37,7 +29,6 @@ const handleLogin = async () => {
     await login(form.value)
     showSuccess('Login successful!')
 
-    // Redirect to requested page or dashboard
     const redirect = route.query.redirect || '/'
     router.push(redirect)
   } catch (error) {
@@ -51,514 +42,330 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="login-page">
-    <!-- Animated background blobs -->
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
+  <div class="login-view-centered">
+    <div class="login-card-v2 glass-card">
+      <!-- Left Branding Panel (Blue Gradient) -->
+      <div class="split-brand-panel-v3">
+        <div class="brand-content-v3">
+          <h1 class="brand-title-v3">Gestion</h1>
+          <p class="brand-subtitle-v3">Empower your educational<br/>ecosystem.</p>
+          
+          <p class="brand-description-v3">
+            The all-in-one platform for modern school management. 
+            Streamline departments, track courses, and manage users with ease.
+          </p>
 
-    <!-- Splash Welcome -->
-    <transition name="splash-fade">
-      <div v-if="showSplash" class="splash-overlay">
-        <div class="splash-content">
-          <div class="splash-logo">
-            <div class="splash-logo-icon">
-              <i class="pi pi-bolt" style="font-size: 2rem;"></i>
+          <div class="feature-pills-v3">
+            <div class="glass-pill-v3">
+              <div class="pill-icon-v3">
+                <i class="pi pi-users"></i>
+              </div>
+              <div class="pill-text-v3">
+                <span class="pill-label-v3">Role-based</span>
+                <span class="pill-sub-v3">Custom access for all</span>
+              </div>
             </div>
-          </div>
-          <h1 class="splash-title">Welcome to Gestion</h1>
-          <p class="splash-subtitle">Your modern school management platform</p>
-          <div class="splash-loader">
-            <div class="splash-loader-bar"></div>
+            
+            <div class="glass-pill-v3">
+              <div class="pill-icon-v3">
+                <i class="pi pi-chart-bar"></i>
+              </div>
+              <div class="pill-text-v3">
+                <span class="pill-label-v3">Live Data</span>
+                <span class="pill-sub-v3">Real-time insights</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </transition>
 
-    <!-- Login Card -->
-    <transition name="card-appear">
-      <div v-show="!showSplash" class="login-card">
-        <!-- Left branding panel -->
-        <div class="brand-panel">
-          <div class="brand-overlay"></div>
-          <div class="brand-content">
-            <div class="brand-logo">
-              <div class="brand-logo-icon">
-                <i class="pi pi-bolt" style="font-size: 1.25rem;"></i>
-              </div>
-              <span class="brand-name">Gestion</span>
-            </div>
-
-            <h2 class="brand-heading">Sign in to your<br>account</h2>
-            <p class="brand-desc">Access your dashboard, follow your courses and manage your hours — fast and secure.</p>
-
-            <ul class="brand-features">
-              <li>
-                <div class="feature-icon"><i class="pi pi-book"></i></div>
-                <span>Access courses and resources</span>
-              </li>
-              <li>
-                <div class="feature-icon"><i class="pi pi-clock"></i></div>
-                <span>Track attendance and hours</span>
-              </li>
-              <li>
-                <div class="feature-icon"><i class="pi pi-user"></i></div>
-                <span>Manage your profile</span>
-              </li>
-            </ul>
+      <!-- Right Login Panel (White with High Contrast) -->
+      <div class="split-form-panel-v3">
+        <div class="login-container-v3">
+          <div class="login-header-v3">
+            <h2 class="login-title-v3">Welcome back</h2>
+            <p class="login-subtitle-v3">Please enter your details to sign in.</p>
           </div>
-        </div>
 
-        <!-- Right form panel -->
-        <div class="form-panel">
-          <div class="form-inner">
-            <div class="form-header">
-              <h1 class="form-title">Welcome back</h1>
-              <p class="form-subtitle">Sign in to continue to your dashboard</p>
+          <form @submit.prevent="handleLogin" class="login-fields-container">
+            <div class="login-field-v3">
+              <label class="login-label-v3">Email Address</label>
+              <div class="p-input-icon-left w-full">
+                <i class="pi pi-envelope" />
+                <InputText 
+                  v-model="form.email" 
+                  placeholder="name@uni.com" 
+                  class="w-full text-black" 
+                  required 
+                  autocomplete="email"
+                />
+              </div>
             </div>
 
-            <form @submit.prevent="handleLogin" class="login-form">
-              <div class="form-group">
-                <label class="form-label">Email</label>
-                <div class="input-wrapper">
-                  <i class="pi pi-envelope input-icon"></i>
-                  <input
-                    v-model="form.email"
-                    type="email"
-                    placeholder="your.email@example.com"
-                    required
-                    autocomplete="email"
-                    class="form-input with-icon"
-                  />
-                </div>
+            <div class="login-field-v3">
+              <div class="flex justify-between items-center mb-1">
+                <label class="login-label-v3">Password</label>
+                <router-link to="/forgot-password" class="forgot-link-v3">Forgot password?</router-link>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">Password</label>
-                <div class="input-wrapper">
-                  <i class="pi pi-lock input-icon"></i>
-                  <input
-                    v-model="form.password"
-                    :type="showPassword ? 'text' : 'password'"
-                    placeholder="••••••••"
-                    required
-                    autocomplete="current-password"
-                    class="form-input with-icon"
-                  />
-                  <button
-                    type="button"
-                    class="password-toggle"
-                    @click="showPassword = !showPassword"
-                    tabindex="-1"
-                  >
-                    <i :class="showPassword ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
-                  </button>
-                </div>
+              <div class="p-input-icon-left w-full">
+                <i class="pi pi-lock" />
+                <Password 
+                  v-model="form.password" 
+                  placeholder="••••••••" 
+                  class="w-full text-black" 
+                  toggleMask 
+                  :feedback="false"
+                  required 
+                  autocomplete="current-password"
+                />
               </div>
+            </div>
 
-              <button
-                type="submit"
-                :disabled="loading"
-                class="submit-btn"
-              >
-                <i v-if="loading" class="pi pi-spin pi-spinner" style="margin-right: 0.5rem;"></i>
-                {{ loading ? 'Signing in...' : 'Sign in' }}
+            <div class="flex items-center gap-2 my-1">
+              <input type="checkbox" id="remember" class="custom-checkbox" />
+              <label for="remember" class="text-sm text-black font-semibold">Keep me signed in for 30 days</label>
+            </div>
+
+            <Button 
+              type="submit" 
+              label="Sign In" 
+              :loading="loading" 
+            />
+
+            <div class="login-divider-v3">
+              <span>Or continue with SSO</span>
+            </div>
+
+            <div class="sso-grid-v3">
+              <button type="button" class="sso-btn-v3">
+                <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" alt="Google" class="w-5 h-5" />
+                <span>Google</span>
               </button>
-            </form>
-
-            <div class="form-footer">
-              <router-link to="/forgot-password" class="link">Forgot password?</router-link>
+              <button type="button" class="sso-btn-v3">
+                <i class="pi pi-microsoft text-blue-600"></i>
+                <span>Azure AD</span>
+              </button>
             </div>
+          </form>
 
-            <div class="form-copyright">
-              © <span class="font-medium">Gestion</span> • All rights reserved
-            </div>
+          <p class="login-footer-v3">Don't have an account? <span class="contact-v3">Contact administrator</span></p>
+        </div>
+
+        <!-- Bottom Mode Toggle (already present in parent App/TopBar, but adding footer for spacing) -->
+        <div class="login-panel-footer">
+          <div class="flex items-center gap-4">
+             <i class="pi pi-moon text-muted p-2 rounded-full border border-surface-border cursor-pointer"></i>
+             <span class="text-[10px] text-muted font-bold tracking-widest uppercase">Terms of Service • Privacy Policy</span>
           </div>
         </div>
       </div>
-    </transition>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.login-page {
+.login-view-centered {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #EEF2FF 0%, #DBEAFE 50%, #E0E7FF 100%);
+  background: var(--surface-bg);
   overflow: hidden;
-}
-.dark .login-page {
-  background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%);
+  padding: 1rem;
 }
 
-/* Animated blobs */
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.5;
-  animation: float 8s ease-in-out infinite;
-}
-.blob-1 {
-  width: 400px; height: 400px;
-  background: rgba(99, 102, 241, 0.3);
-  top: -10%; left: -5%;
-  animation-delay: 0s;
-}
-.blob-2 {
-  width: 300px; height: 300px;
-  background: rgba(59, 130, 246, 0.25);
-  bottom: -5%; right: -5%;
-  animation-delay: -3s;
-}
-.blob-3 {
-  width: 200px; height: 200px;
-  background: rgba(14, 165, 233, 0.2);
-  top: 30%; right: 15%;
-  animation-delay: -5s;
-}
-@keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -20px) scale(1.05); }
-  66% { transform: translate(-20px, 15px) scale(0.95); }
-}
-
-/* Splash */
-.splash-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-  backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.3);
-}
-.dark .splash-overlay {
-  background: rgba(15, 23, 42, 0.5);
-}
-.splash-content {
-  text-align: center;
-  animation: slideUp 0.8s ease-out;
-}
-.splash-logo-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 1.5rem;
-  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
-}
-.splash-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin: 0;
-}
-.splash-subtitle {
-  font-size: 1rem;
-  color: var(--text-muted);
-  margin: 0.5rem 0 2rem;
-}
-.splash-loader {
-  width: 120px;
-  height: 3px;
-  background: var(--surface-border);
-  border-radius: 3px;
-  margin: 0 auto;
-  overflow: hidden;
-}
-.splash-loader-bar {
-  width: 40%;
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
-  border-radius: 3px;
-  animation: load 1.8s ease-in-out infinite;
-}
-@keyframes load {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
-}
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Splash transition */
-.splash-fade-leave-active { transition: opacity 0.5s ease; }
-.splash-fade-leave-to { opacity: 0; }
-
-/* Card appear transition */
-.card-appear-enter-active { transition: opacity 0.6s ease, transform 0.6s ease; }
-.card-appear-enter-from { opacity: 0; transform: scale(0.95) translateY(20px); }
-
-/* Login card */
-.login-card {
-  position: relative;
-  z-index: 20;
+.login-card-v2 {
   width: 100%;
-  max-width: 960px;
-  margin: 0 1rem;
+  max-width: 1000px;
+  height: 650px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-radius: var(--radius-xl);
+  grid-template-columns: 1.1fr 0.9fr;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-  background: var(--surface-card);
+  border: none !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
 }
 
-/* Brand panel */
-.brand-panel {
-  position: relative;
+/* Left Branding Panel */
+.split-brand-panel-v3 {
+  background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%);
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: center;
   padding: 3rem;
-  background: linear-gradient(135deg, #4F46E5, #3B82F6, #0EA5E9);
-  color: white;
-  overflow: hidden;
-}
-.brand-overlay {
-  position: absolute;
-  inset: 0;
-}
-.brand-overlay::before {
-  content: '';
-  position: absolute;
-  width: 300px; height: 300px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  top: -80px; left: -60px;
-  filter: blur(40px);
-}
-.brand-overlay::after {
-  content: '';
-  position: absolute;
-  width: 200px; height: 200px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  bottom: -40px; right: -20px;
-  filter: blur(30px);
-}
-.brand-content {
   position: relative;
-  z-index: 2;
-}
-.brand-logo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-}
-.brand-logo-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.brand-name {
-  font-size: 1rem;
-  font-weight: 700;
-}
-.brand-heading {
-  font-size: 2rem;
-  font-weight: 800;
-  line-height: 1.2;
-  margin: 0 0 1rem;
-}
-.brand-desc {
-  font-size: 0.9rem;
-  opacity: 0.9;
-  line-height: 1.6;
-  margin: 0 0 2rem;
-}
-.brand-features {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-.brand-features li {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.875rem;
-  opacity: 0.9;
-}
-.feature-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  flex-shrink: 0;
 }
 
-/* Form panel */
-.form-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2.5rem;
+.dark .split-brand-panel-v3 {
+  background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%);
 }
-.form-inner {
-  width: 100%;
-  max-width: 380px;
+
+.brand-content-v3 {
+  max-width: 440px;
 }
-.form-header {
-  text-align: center;
-  margin-bottom: 2rem;
+
+.brand-title-v3 {
+  font-size: 4.5rem;
+  font-weight: 900;
+  color: var(--color-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: -2px;
 }
-.form-title {
+
+.brand-subtitle-v3 {
   font-size: 1.75rem;
   font-weight: 800;
-  color: var(--text-primary);
-  margin: 0;
+  color: #000000;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
 }
-.form-subtitle {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  margin: 0.5rem 0 0;
+.dark .brand-subtitle-v3 { color: #FFFFFF; }
+
+.brand-description-v3 {
+  font-size: 1rem;
+  color: #1E293B;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+  font-weight: 500;
 }
-.login-form {
+.dark .brand-description-v3 { color: var(--text-muted); }
+
+.feature-pills-v3 {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
-.form-group {
+
+.glass-pill-v3 {
   display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(10px);
+  padding: 0.875rem 1.25rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
-.form-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+
+.dark .glass-pill-v3 {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
-.input-wrapper {
-  position: relative;
-}
-.input-icon {
-  position: absolute;
-  left: 0.85rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-.form-input {
-  width: 100%;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-card);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.form-input.with-icon {
-  padding-left: 2.5rem;
-}
-.form-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-.form-input::placeholder {
-  color: var(--text-muted);
-}
-.password-toggle {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.25rem;
-  font-size: 0.9rem;
-  transition: color 0.2s;
-}
-.password-toggle:hover {
-  color: var(--text-primary);
-}
-.submit-btn {
-  width: 100%;
-  padding: 0.75rem;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+
+.pill-icon-v3 {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--color-primary);
   color: white;
-  font-size: 0.9rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.25rem;
-}
-.submit-btn:hover:not(:disabled) {
-  opacity: 0.92;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.35);
-  transform: translateY(-1px);
-}
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.form-footer {
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
-}
-.link {
-  font-size: 0.825rem;
-  color: var(--color-primary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: opacity 0.2s;
-}
-.link:hover {
-  opacity: 0.8;
-  text-decoration: underline;
-}
-.form-copyright {
-  text-align: center;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-top: 2rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .login-card {
-    grid-template-columns: 1fr;
-    max-width: 420px;
-  }
-  .brand-panel {
-    display: none;
-  }
-  .form-panel {
-    padding: 2rem 1.5rem;
-  }
+.pill-text-v3 { display: flex; flex-direction: column; }
+.pill-label-v3 { font-weight: 800; font-size: 0.85rem; color: #000000; }
+.dark .pill-label-v3 { color: #FFFFFF; }
+.pill-sub-v3 { font-size: 0.7rem; color: #475569; font-weight: 600; }
+.dark .pill-sub-v3 { color: var(--text-muted); }
+
+/* Right Panel */
+.split-form-panel-v3 {
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  position: relative;
+}
+
+.dark .split-form-panel-v3 {
+  background: #1E293B;
+}
+
+.login-container-v3 {
+  width: 100%;
+  max-width: 380px;
+}
+
+.login-header-v3 { margin-bottom: 2rem; }
+.login-title-v3 { font-size: 2.25rem; font-weight: 900; color: #000000; letter-spacing: -1px; margin-bottom: 0.25rem; }
+.dark .login-title-v3 { color: #FFFFFF; }
+.login-subtitle-v3 { color: #64748B; font-size: 0.95rem; font-weight: 500; }
+
+.login-fields-container { display: flex; flex-direction: column; gap: 1.25rem; }
+.login-field-v3 { display: flex; flex-direction: column; gap: 0.375rem; }
+.login-label-v3 { font-weight: 700; font-size: 0.8rem; color: #000000; text-transform: uppercase; letter-spacing: 0.5px; }
+.dark .login-label-v3 { color: #CBD5E1; }
+
+.forgot-link-v3 { font-size: 0.8rem; color: var(--color-primary); text-decoration: none; font-weight: 700; }
+
+:deep(.p-inputtext) {
+  padding-left: 2.75rem !important;
+  border-radius: var(--radius-md) !important;
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+}
+
+.p-input-icon-left i { left: 1rem; color: #64748B; }
+
+.login-btn-v3 {
+  background: var(--color-primary) !important;
+  border: none !important;
+  padding: 0.875rem !important;
+  font-weight: 800 !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+}
+
+.login-divider-v3 {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #94A3B8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0.5rem 0;
+}
+.login-divider-v3::before, .login-divider-v3::after { content: ''; flex: 1; border-bottom: 1px solid #E2E8F0; }
+.login-divider-v3:not(:empty)::before { margin-right: 1rem; }
+.login-divider-v3:not(:empty)::after { margin-left: 1rem; }
+
+.sso-grid-v3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.sso-btn-v3 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-md);
+  padding: 0.625rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #000000;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dark .sso-btn-v3 { background: #334155; border-color: #475569; color: #F8FAFC; }
+.sso-btn-v3:hover { background: #F8FAFC; }
+.dark .sso-btn-v3:hover { background: #475569; }
+
+.login-footer-v3 { margin-top: 1.5rem; text-align: center; font-size: 0.85rem; color: #64748B; font-weight: 500; }
+.contact-v3 { color: var(--color-primary); font-weight: 800; cursor: pointer; }
+
+.login-panel-footer { position: absolute; bottom: 1.5rem; display: flex; justify-content: center; width: 100%; }
+
+@media (max-width: 900px) {
+  .login-card-v2 { grid-template-columns: 1fr; height: auto; max-width: 450px; }
+  .split-brand-panel-v3 { display: none; }
+  .split-form-panel-v3 { padding: 3rem 1.5rem; }
 }
 </style>

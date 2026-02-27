@@ -4,7 +4,8 @@ import departmentService from '../services/department.service'
 import { useUserStore } from '../store/user.store'
 import { showSuccess, showError } from '../utils/toast'
 import FormField from '../components/common/FormField.vue'
-import Table from '../components/common/Table.vue'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 
 const userStore = useUserStore()
 const departments = ref([])
@@ -17,12 +18,6 @@ const searchQuery = ref('')
 const form = ref({ name: '', description: '' })
 
 const canManage = computed(() => ['admin', 'rh'].includes(userStore.user?.role))
-
-const columns = [
-  { key: 'name', label: 'Department Name' },
-  { key: 'description', label: 'Description' },
-  { key: 'courses_count', label: 'Courses' }
-]
 
 const stats = computed(() => [
   { label: 'Total Departments', value: departments.value.length, icon: 'pi pi-building' },
@@ -124,23 +119,48 @@ onMounted(load)
 
     <!-- Table -->
     <div class="table-container glass-card">
-      <Table :columns="columns" :rows="filteredDepts" :loading="loading">
-        <template #cell-name="{ value }">
-          <span class="font-bold text-gray-800">{{ value }}</span>
-        </template>
-        <template #cell-description="{ value }">
-          <span class="text-gray-500 text-sm italic">{{ value || 'No description' }}</span>
-        </template>
-        <template #cell-courses_count="{ row }">
-          <span class="role-badge rh">{{ row.courses?.length || 0 }} Courses</span>
-        </template>
-        <template #actions="{ row }">
-          <div v-if="canManage" class="actions-group">
-            <button @click="editDept(row)" class="action-btn edit" title="Edit"><i class="pi pi-pencil"></i></button>
-            <button @click="deleteDept(row)" class="action-btn delete" title="Delete"><i class="pi pi-trash"></i></button>
+      <DataTable 
+        :value="filteredDepts" 
+        :loading="loading" 
+        stripedRows 
+        removableSort
+        responsiveLayout="scroll"
+        class="p-datatable-sm"
+      >
+        <Column field="name" header="Department Name" sortable>
+          <template #body="{ data }">
+            <span class="font-bold text-gray-800">{{ data.name }}</span>
+          </template>
+        </Column>
+
+        <Column field="description" header="Description" sortable>
+          <template #body="{ data }">
+            <span class="text-gray-500 text-sm italic">{{ data.description || 'No description' }}</span>
+          </template>
+        </Column>
+
+        <Column header="Courses" sortable sortField="courses.length">
+          <template #body="{ data }">
+            <span class="role-badge rh">{{ data.courses?.length || 0 }} Courses</span>
+          </template>
+        </Column>
+
+        <Column header="Actions" headerStyle="text-align: right" bodyStyle="text-align: right">
+          <template #body="{ data }">
+            <div v-if="canManage" class="actions-group">
+              <button @click="editDept(data)" class="action-btn edit" title="Edit"><i class="pi pi-pencil"></i></button>
+              <button @click="deleteDept(data)" class="action-btn delete" title="Delete"><i class="pi pi-trash"></i></button>
+            </div>
+          </template>
+        </Column>
+
+        <template #empty>
+          <div class="p-4 text-center text-muted">
+            <i class="pi pi-building block mb-2" style="font-size: 2rem"></i>
+            No departments found
           </div>
         </template>
-      </Table>
+      </DataTable>
     </div>
 
     <!-- Modal -->
@@ -169,6 +189,7 @@ onMounted(load)
 </template>
 
 <style scoped>
+/* Scoped styles preserved and refined for PrimeVue */
 .departments-view {
   display: flex;
   flex-direction: column;
@@ -208,7 +229,7 @@ onMounted(load)
 .modal-body { padding: 1.5rem; }
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--surface-border); display: flex; justify-content: flex-end; gap: 0.75rem; }
 
-.field-textarea { width: 100%; height: 80px; padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--surface-border); background: var(--surface-bg); outline: none; resize: none; font-size: 0.9rem; }
+.field-textarea { width: 100%; height: 80px; padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--surface-border); background: var(--surface-bg); color: var(--text-primary); outline: none; resize: none; font-size: 0.9rem; }
 
 @media (max-width: 768px) {
   .header-section { flex-direction: column; align-items: flex-start; gap: 1rem; }

@@ -42,10 +42,11 @@ const toggleSidebar = () => {
 
 .page-content {
   flex: 1;
-  padding: 1.5rem;
+  padding: 2.5rem 2rem; /* Increased padding for SaaS feel */
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
+  background-color: var(--surface-bg);
 }
 
 @media (max-width: 768px) {

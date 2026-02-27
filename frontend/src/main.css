@@ -19,9 +19,9 @@
   --color-danger: #EF4444;
   --color-danger-light: #FEF2F2;
 
-  /* Surfaces & Borders (Light) */
-  --surface-bg: #F8FAFC;
-  --surface-card: #FFFFFF;
+  /* Surfaces & Borders (Light) - Refined for separation */
+  --surface-bg: #F8FAFC; /* Softer, cooler grey background */
+  --surface-card: #FFFFFF; /* Pure white for popping */
   --surface-hover: #F1F5F9;
   --surface-border: #E2E8F0;
   
@@ -51,19 +51,16 @@
 
 /* Dark Mode Overrides */
 .dark {
-  --surface-bg: #0F172A;
-  --surface-card: #1E293B;
+  --surface-bg: #0F172A; /* Deeper navy */
+  --surface-card: #1E293B; /* Slate card */
   --surface-hover: #334155;
   --surface-border: #334155;
   
   --text-primary: #F8FAFC;
   --text-secondary: #CBD5E1;
-  --text-muted: #64748B;
+  --text-muted: #94A3B8;
   
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-  --shadow-premium: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --color-primary-light: rgba(59, 130, 246, 0.2);
 }
 
 /* Base Styles */
@@ -87,11 +84,11 @@ body {
   background-color: var(--surface-card);
   border: 1px solid var(--surface-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05); /* Softer shadows for simplicity */
   transition: all 0.2s ease;
 }
 .glass-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
 }
 
 /* Premium Button Lift */
@@ -189,6 +186,34 @@ body {
   color: var(--color-primary);
 }
 
+/* Circle Icon Container Utility */
+.icon-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* Brand specific utilities for split login */
+.brand-split-bg {
+  background: linear-gradient(135deg, #F0F7FF 0%, #E0F2FE 100%);
+}
+.dark .brand-split-bg {
+  background: linear-gradient(135deg, #0F172A 0%, #172554 100%);
+}
+
+.main-body-container {
+  background: var(--surface-bg);
+  min-height: calc(100vh - var(--topbar-height));
+  padding: 2rem;
+}
+
 /* Action Buttons */
 .action-btn {
   width: 32px;
@@ -246,29 +271,77 @@ body {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
 }
 
-/* PrimeVue Overrides for SaaS v2 */
+/* PrimeVue Overrides for SaaS v3 - Enhanced High Contrast */
 .p-datatable-header {
   background: var(--surface-card) !important;
   border-bottom: 1px solid var(--surface-border) !important;
+  padding: 1rem 1.5rem !important;
+  border-top-left-radius: var(--radius-lg) !important;
+  border-top-right-radius: var(--radius-lg) !important;
 }
-.p-column-title {
-  font-weight: 600 !important;
+
+.p-datatable {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card);
+}
+
+.p-datatable .p-datatable-thead > tr > th {
+  background: var(--surface-bg) !important;
+  border-bottom: 1px solid var(--surface-border) !important;
   color: var(--text-muted) !important;
+  font-weight: 700 !important;
   font-size: 0.75rem !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
-}
-.p-datatable .p-datatable-thead > tr > th {
-  background: #F8FAFC !important;
-  border-bottom: 1px solid var(--surface-border) !important;
-  color: var(--text-muted) !important;
-  padding: 1rem !important;
-}
-.dark .p-datatable .p-datatable-thead > tr > th {
-  background: #1e293b !important;
+  padding: 1rem 1.5rem !important;
 }
 
+.dark .p-datatable .p-datatable-thead > tr > th {
+  background: #1E293B !important;
+}
+
+.p-datatable .p-datatable-tbody > tr {
+  background: var(--surface-card) !important;
+  transition: all 0.15s ease !important;
+}
+
+.p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--surface-hover) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  padding: 1rem 1.5rem !important;
+  border-bottom: 1px solid var(--surface-border) !important;
+  color: var(--text-primary) !important;
+  vertical-align: middle;
+}
+
+.p-datatable .p-column-title {
+  display: none; /* Hide standard title if using headers */
+}
+
+/* Striped Rows v3 */
+.p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
+  background: rgba(248, 250, 252, 0.5) !important;
+}
+.dark .p-datatable-striped .p-datatable-tbody > tr:nth-child(even) {
+  background: rgba(30, 41, 59, 0.3) !important;
+}
+
+/* Global Form Polish */
 .p-inputtext, .p-select, .p-textarea, .p-datepicker-input {
   font-family: 'Inter', sans-serif !important;
   border-radius: var(--radius-sm) !important;
+  border: 1px solid var(--surface-border) !important;
+  background: var(--surface-bg) !important;
+  color: var(--text-primary) !important;
+  padding: 0.625rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.p-inputtext:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-primary-light) !important;
 }

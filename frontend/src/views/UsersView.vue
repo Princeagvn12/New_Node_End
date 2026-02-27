@@ -8,7 +8,8 @@ import { showSuccess, showError } from '../utils/toast'
 import PageHeader from '../components/common/PageHeader.vue'
 import StatCard from '../components/common/StatCard.vue'
 import FormField from '../components/common/FormField.vue'
-import Table from '../components/common/Table.vue'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 
 const userStore = useUserStore()
 const users = ref([])
@@ -30,13 +31,6 @@ const assignDialog = ref({ show: false, student: null, choices: [], selected: ''
 const canManageUsers = computed(() => ['admin', 'rh'].includes(userStore.user?.role))
 const isTeacherView = computed(() => ['formateur', 'formateur_principal'].includes(userStore.user?.role))
 
-const columns = [
-  { key: 'user', label: 'User' },
-  { key: 'role', label: 'Role' },
-  { key: 'department', label: 'Department' },
-  { key: 'status', label: 'Status' }
-]
-
 const stats = computed(() => {
   return [
     { label: 'Total Users', value: users.value.length, icon: 'pi pi-users', color: '#3B82F6' },
@@ -57,7 +51,7 @@ const filteredUsers = computed(() => {
 const getInitials = (name) => {
   if (!name) return '?'
   const parts = name.split(' ')
-  return parts.length >= 2
+  return parts.length >= 2 
     ? (parts[0][0] + parts[1][0]).toUpperCase()
     : name.substring(0, 2).toUpperCase()
 }
@@ -231,50 +225,72 @@ onMounted(() => {
 
     <!-- Users Table -->
     <div class="table-wrap glass-card">
-      <Table 
-        :columns="columns" 
-        :rows="filteredUsers" 
-        :loading="loading"
-        empty-icon="pi pi-users"
-        empty-title="No users found"
+      <DataTable 
+        :value="filteredUsers" 
+        :loading="loading" 
+        stripedRows 
+        removableSort
+        responsiveLayout="scroll"
+        class="p-datatable-sm"
       >
-        <template #cell-user="{ row }">
-          <div class="user-info-cell">
-            <div class="avatar-initials">{{ getInitials(row.name) }}</div>
-            <div class="user-text">
-              <span class="user-name">{{ row.name }}</span>
-              <span class="user-email">{{ row.email }}</span>
+        <Column header="User" sortable sortField="name">
+          <template #body="{ data }">
+            <div class="user-info-cell">
+              <div class="avatar-initials">{{ getInitials(data.name) }}</div>
+              <div class="user-text">
+                <span class="user-name">{{ data.name }}</span>
+                <span class="user-email">{{ data.email }}</span>
+              </div>
             </div>
+          </template>
+        </Column>
+
+        <Column field="role" header="Role" sortable>
+          <template #body="{ data }">
+            <span class="role-badge" :class="data.role">{{ data.role.replace('_', ' ') }}</span>
+          </template>
+        </Column>
+
+        <Column header="Department" sortable sortField="department.name">
+          <template #body="{ data }">
+            <span class="dept-text">{{ data.department?.name || '—' }}</span>
+          </template>
+        </Column>
+
+        <Column field="isActive" header="Status" sortable>
+          <template #body="{ data }">
+            <span class="status-badge" :class="data.isActive ? 'active' : 'inactive'">
+              {{ data.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </template>
+        </Column>
+
+        <Column header="Actions" headerStyle="text-align: right" bodyStyle="text-align: right">
+          <template #body="{ data }">
+            <div class="actions-group">
+              <button v-if="canManageUsers || isTeacherView" @click="editUser(data)" class="action-btn edit" title="Edit">
+                <i class="pi pi-pencil"></i>
+              </button>
+              <button v-if="canManageUsers || isTeacherView" @click="toggleActivate(data)" class="action-btn" title="Toggle Active">
+                <i :class="data.isActive ? 'pi pi-ban' : 'pi pi-check-circle'"></i>
+              </button>
+              <button v-if="isTeacherView" @click="openAssignDialog(data)" class="action-btn" title="Assign Course">
+                <i class="pi pi-link"></i>
+              </button>
+              <button v-if="canManageUsers" @click="deleteUser(data)" class="action-btn delete" title="Delete">
+                <i class="pi pi-trash"></i>
+              </button>
+            </div>
+          </template>
+        </Column>
+
+        <template #empty>
+          <div class="p-4 text-center text-muted">
+            <i class="pi pi-users block mb-2" style="font-size: 2rem"></i>
+            No users found
           </div>
         </template>
-        <template #cell-role="{ value }">
-          <span class="role-badge" :class="value">{{ value.replace('_', ' ') }}</span>
-        </template>
-        <template #cell-department="{ row }">
-          <span class="dept-text">{{ row.department?.name || '—' }}</span>
-        </template>
-        <template #cell-status="{ row }">
-          <span class="status-badge" :class="row.isActive ? 'active' : 'inactive'">
-            {{ row.isActive ? 'Active' : 'Inactive' }}
-          </span>
-        </template>
-        <template #actions="{ row }">
-          <div class="actions-group">
-            <button v-if="canManageUsers || isTeacherView" @click="editUser(row)" class="action-btn edit" title="Edit">
-              <i class="pi pi-pencil"></i>
-            </button>
-            <button v-if="canManageUsers || isTeacherView" @click="toggleActivate(row)" class="action-btn" title="Toggle Active">
-              <i :class="row.isActive ? 'pi pi-ban' : 'pi pi-check-circle'"></i>
-            </button>
-            <button v-if="isTeacherView" @click="openAssignDialog(row)" class="action-btn" title="Assign Course">
-              <i class="pi pi-link"></i>
-            </button>
-            <button v-if="canManageUsers" @click="deleteUser(row)" class="action-btn delete" title="Delete">
-              <i class="pi pi-trash"></i>
-            </button>
-          </div>
-        </template>
-      </Table>
+      </DataTable>
     </div>
 
     <!-- Create/Edit Dialog -->
@@ -330,6 +346,28 @@ onMounted(() => {
           <div class="modal-footer centered">
             <button @click="confirmDialog.show = false" class="btn-premium secondary-btn">Cancel</button>
             <button @click="confirmDialog.action(); confirmDialog.show = false" class="btn-premium btn-primary danger">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Assign Course Dialog (Teacher only) -->
+    <transition name="fade">
+      <div v-if="assignDialog.show" class="modal-overlay" @click.self="assignDialog.show = false">
+        <div class="modal-card glass-card slide-up tiny">
+          <div class="modal-header">
+            <h3>Affecter à un cours</h3>
+            <button @click="assignDialog.show = false" class="close-btn"><i class="pi pi-times"></i></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-sm mb-2 text-gray-500">Choisir un cours pour <strong>{{ assignDialog.student?.name }}</strong>:</p>
+            <select v-model="assignDialog.selected" class="field-select w-full">
+              <option v-for="c in assignDialog.choices" :key="c._id" :value="String(idOf(c))">{{ c.name }}</option>
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button @click="assignDialog.show = false" class="btn-premium secondary-btn">Annuler</button>
+            <button @click="confirmAssign" class="btn-premium btn-primary">Confirmer</button>
           </div>
         </div>
       </div>
