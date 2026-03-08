@@ -1,0 +1,87 @@
+# Frontend Redesign Walkthrough — Gestion
+
+## Summary
+
+Transformed the Gestion school management platform from a basic glass-card UI into a modern 2025 SaaS dashboard. All changes are **presentation-layer only** — no logic, API, route, or store modifications.
+
+## What Was Done
+
+### Foundation
+- Installed **PrimeVue v4** with Aura preset + PrimeIcons
+- Created a complete **CSS design system** with custom properties for colors, radii, shadows, and dark mode
+- Added **Inter** font from Google Fonts
+- Updated [main.css](file:///c:/work/New_Node_End/frontend/main.css) with globally available utility classes (`.glass-card`, `.role-badge`, `.status-badge`, `.avatar-initials`, `.action-btn`)
+
+### Layout Shell (New)
+- **[Sidebar.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/Sidebar.vue)** — Collapsible sidebar with role-aware navigation, PrimeIcons, active route indicator, user avatar + role badge footer
+- **[TopBar.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/TopBar.vue)** — Sticky top bar with sidebar toggle, dark/light mode switcher (moon/sun icons), user section
+- **[MainLayout.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/MainLayout.vue)** — Composing sidebar + topbar + content slot, replacing the old [Navbar.vue](file:///c:/work/New_Node_End/frontend/src/components/common/Navbar.vue)
+- **[App.vue](file:///c:/work/New_Node_End/frontend/src/App.vue)** — Updated to use `MainLayout` for authenticated routes; auth pages render without layout
+
+### Shared Components
+| Component | What's New |
+|-----------|-----------|
+| [StatCard.vue](file:///c:/work/New_Node_End/frontend/src/components/common/StatCard.vue) | Icon + label + value + colored accent bar |
+| [PageHeader.vue](file:///c:/work/New_Node_End/frontend/src/components/common/PageHeader.vue) | Title + subtitle + actions slot |
+| [EmptyState.vue](file:///c:/work/New_Node_End/frontend/src/components/common/EmptyState.vue) | Centered icon + title + message |
+| [FormField.vue](file:///c:/work/New_Node_End/frontend/src/components/common/FormField.vue) | Styled labels, focus rings, required asterisks, dark mode |
+| [Table.vue](file:///c:/work/New_Node_End/frontend/src/components/common/Table.vue) | Global search, skeleton loading, empty state, row hover |
+
+### Page Redesigns
+
+| Page | Key Changes |
+|------|------------|
+| **Login** | Animated splash → two-panel card (gradient brand panel + form), password toggle, gradient submit button, animated background blobs |
+| **ForgotPassword** | Stepper progress (step 1), gradient blobs, centered card, styled input |
+| **ResetPassword** | Stepper progress (step 2 active, step 1 completed), code + password fields with toggles |
+| **Dashboard** | Gradient welcome banner, StatCards per role, recent users table with avatar initials + role badges, student course cards |
+| **Departments** | PageHeader + create button, animated form panel, styled Table with icon action buttons, course count badges |
+| **Courses** | Department Tag badges, student count badges, multi-select for student assignment |
+| **Users** | Avatar initials, role badges (color-coded), status badges (active/inactive), styled confirm/assign dialogs with backdrop blur |
+| **Hours** | Two-column layout (form card + entries table), styled selects and date inputs |
+| **StudentHours** | Gradient hero stat card, brand-colored bar/pie charts, filter row, course summary cards with progress bars, PDF export |
+
+## Visual Verification
+
+![Login page redesign](C:/Users/PC/.gemini/antigravity/brain/19683e50-d39c-40c1-acd0-bd4c040c7e5f/login_page_redesign_1772128806649.png)
+
+![Login flow recording](C:/Users/PC/.gemini/antigravity/brain/19683e50-d39c-40c1-acd0-bd4c040c7e5f/login_page_test_1772128768147.webp)
+
+### Build Result
+- `npm run build` — ✅ **Succeeded** (exit code 0, built in 5.55s)
+- `npm run dev` — ✅ Server started on `localhost:5173`
+- Login page verified visually in browser
+
+## Files Changed
+
+### New Files
+- [src/components/layout/Sidebar.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/Sidebar.vue)
+- [src/components/layout/TopBar.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/TopBar.vue)
+- [src/components/layout/MainLayout.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/MainLayout.vue)
+- [src/components/common/StatCard.vue](file:///c:/work/New_Node_End/frontend/src/components/common/StatCard.vue)
+- [src/components/common/PageHeader.vue](file:///c:/work/New_Node_End/frontend/src/components/common/PageHeader.vue)
+- [src/components/common/EmptyState.vue](file:///c:/work/New_Node_End/frontend/src/components/common/EmptyState.vue)
+
+### Modified Files
+- [index.html](file:///c:/work/New_Node_End/frontend/index.html) — Inter font, meta, title
+- [src/main.js](file:///c:/work/New_Node_End/frontend/src/main.js) — PrimeVue registration
+- [src/main.css](file:///c:/work/New_Node_End/frontend/src/main.css) — Full design system
+- [src/App.vue](file:///c:/work/New_Node_End/frontend/src/App.vue) — MainLayout integration
+- [src/components/common/FormField.vue](file:///c:/work/New_Node_End/frontend/src/components/common/FormField.vue)
+- [src/components/common/Table.vue](file:///c:/work/New_Node_End/frontend/src/components/common/Table.vue)
+- [src/views/Login.vue](file:///c:/work/New_Node_End/frontend/src/views/Login.vue)
+- [src/views/ForgotPassword.vue](file:///c:/work/New_Node_End/frontend/src/views/ForgotPassword.vue)
+- [src/views/ResetPassword.vue](file:///c:/work/New_Node_End/frontend/src/views/ResetPassword.vue)
+- [src/views/Dashboard.vue](file:///c:/work/New_Node_End/frontend/src/views/Dashboard.vue)
+- [src/views/DepartmentsView.vue](file:///c:/work/New_Node_End/frontend/src/views/DepartmentsView.vue)
+- [src/views/CoursesView.vue](file:///c:/work/New_Node_End/frontend/src/views/CoursesView.vue)
+- [src/views/UsersView.vue](file:///c:/work/New_Node_End/frontend/src/views/UsersView.vue)
+- [src/views/HoursView.vue](file:///c:/work/New_Node_End/frontend/src/views/HoursView.vue)
+- [src/components/student/StudentHoursView.vue](file:///c:/work/New_Node_End/frontend/src/components/student/StudentHoursView.vue)
+
+## Next Steps for User
+1. Start backend server (`cd backend && npm run dev`)
+2. Start frontend (`cd frontend && npm run dev`)
+3. Login with different roles to verify all pages
+4. Test dark mode toggle in the top bar
+5. Test sidebar collapse/expand

@@ -106,7 +106,7 @@ const getCourseById = async (req, res, next) => {
 // Create course (formateur_principal only)
 const createCourse = async (req, res, next) => {
   try {
-    const { title, description, teacher, code, department, students } = req.body;
+    const { title, description, teacher, code, department, students, credits } = req.body;
 
     // Validate students: only users with role 'etudiant'
     let validStudents = [];
@@ -124,12 +124,14 @@ const createCourse = async (req, res, next) => {
       code,
       teacher,
       department: deptToUse,
-      students: validStudents
+      students: validStudents,
+      credits: credits || 0
     });
 
     await course.populate([
       { path: 'department', select: 'name' },
-      { path: 'teacher', select: 'name email' }
+      { path: 'teacher', select: 'name email' },
+      { path: 'students', select: 'name email' }
     ]);
 
     return createResponse(res, 201, 'Cours créé avec succès', { course });
@@ -141,7 +143,7 @@ const createCourse = async (req, res, next) => {
 // Update course
 const updateCourse = async (req, res, next) => {
   try {
-    const { title, description, teacher, code, department, students } = req.body;
+    const { title, description, teacher, code, department, students, credits } = req.body;
     const course = await Course.findById(req.params.id);
 
     if (!course) {
@@ -168,6 +170,7 @@ const updateCourse = async (req, res, next) => {
     if (req.user.role === 'admin' && typeof department !== 'undefined') {
       updatePayload.department = department;
     }
+    if (typeof credits !== 'undefined') updatePayload.credits = credits;
 
     // If students provided, validate and set
     if (Array.isArray(students)) {

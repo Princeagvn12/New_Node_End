@@ -1,9 +1,11 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { showSuccess, showError } from '../utils/toast'
-import FormField from '../components/common/FormField.vue'
+import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
+import Button from 'primevue/button'
 
 const router = useRouter()
 const route = useRoute()
@@ -16,16 +18,6 @@ const form = ref({
 
 const loading = ref(false)
 
-// new: control the welcome splash
-const showSplash = ref(true)
-
-onMounted(() => {
-  // duration of the splash before showing the form (ms)
-  setTimeout(() => {
-    showSplash.value = false
-  }, 3000)
-})
-
 const handleLogin = async () => {
   if (!form.value.email || !form.value.password) {
     showError('Please enter email and password')
@@ -37,7 +29,6 @@ const handleLogin = async () => {
     await login(form.value)
     showSuccess('Login successful!')
 
-    // Redirect to requested page or dashboard
     const redirect = route.query.redirect || '/'
     router.push(redirect)
   } catch (error) {
@@ -51,117 +42,339 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <!-- Fullscreen fixed layout to avoid any scrollbars on login -->
-  <div class="fixed inset-0 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center overflow-hidden">
-    <!-- Splash Welcome (centered, backdrop + blobs) -->
-    <div
-      v-show="showSplash"
-      class="absolute inset-0 flex items-center justify-center transition-opacity duration-700"
-      aria-hidden="true"
-    >
-      <div class="absolute inset-0 backdrop-blur-md bg-white/30 dark:bg-slate-900/40"></div>
-
-      <!-- decorative colorful blobs -->
-      <div class="absolute left-8 top-20 w-64 h-64 rounded-full bg-indigo-500/40 blur-3xl transform -rotate-6 animate-[pulse_3s_infinite]"></div>
-      <div class="absolute -right-8 bottom-24 w-56 h-56 rounded-full bg-blue-300/30 blur-2xl transform rotate-12"></div>
-      <div class="absolute right-28 top-24 w-36 h-36 rounded-full bg-cyan-300/30 blur-xl"></div>
-
-      <div class="relative z-10 text-center px-6">
-        <div class="text-4xl md:text-6xl font-extrabold text-slate-900 dark:text-white drop-shadow-sm">Welcome</div>
-        <p class="mt-4 text-sm text-slate-700 dark:text-slate-300/90">Welcome to your platform</p>
-      </div>
-    </div>
-
-    <!-- Login two-column card (keeps within viewport, no internal scroll) -->
-    <div
-      v-show="!showSplash"
-      class="relative w-full max-w-5xl mx-4 md:mx-auto transition-opacity duration-700 z-20"
-      style="max-height: 88vh;"
-    >
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-0 bg-white/95 dark:bg-slate-800/85 rounded-3xl shadow-2xl overflow-hidden">
-        <!-- Left presentation panel (blue, informational) -->
-        <div class="relative hidden md:flex flex-col justify-center p-12 text-white bg-gradient-to-br from-indigo-600 via-blue-500 to-cyan-500">
-          <!-- subtle decorative whites for depth -->
-          <div class="absolute -left-16 -top-10 w-72 h-72 rounded-full bg-white/6 blur-2xl"></div>
-          <div class="absolute right-10 bottom-10 w-40 h-40 rounded-full bg-white/8 blur-xl"></div>
-
-          <div class="z-10">
-            <div class="flex items-center gap-3 mb-8">
-              <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold">G</div>
-              <div class="text-sm font-semibold">Gestion</div>
-            </div>
-
-            <h2 class="text-3xl font-extrabold leading-tight mb-4">Sign in to your account</h2>
-            <p class="text-white/90 mb-6">Access your dashboard, follow your courses and manage your hours — fast and secure.</p>
-
-            <ul class="space-y-3 text-sm text-white/90">
-              <li class="flex items-start gap-3">
-                <span class="w-3 h-3 rounded-full bg-white/80 mt-1"></span>
-                Access courses and resources
-              </li>
-              <li class="flex items-start gap-3">
-                <span class="w-3 h-3 rounded-full bg-white/80 mt-1"></span>
-                Track attendance and hours
-              </li>
-              <li class="flex items-start gap-3">
-                <span class="w-3 h-3 rounded-full bg-white/80 mt-1"></span>
-                Manage your profile
-              </li>
-            </ul>
-          </div>
+  <div class="login-page-v2">
+    <div class="login-card-container animate-fade-in">
+      <!-- Left Panel: Vibrant Branding -->
+      <div class="brand-panel">
+        <div class="brand-header">
+          <div class="brand-logo">G</div>
+          <span class="brand-name">Gestion</span>
         </div>
 
-        <!-- Right form panel (clean, centered) -->
-        <div class="p-6 md:p-12 flex items-center justify-center">
-          <div class="w-full max-w-md">
-            <div class="text-center mb-6">
-              <h1 class="text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100">Welcome back</h1>
-              <p class="mt-2 text-sm text-slate-500 dark:text-slate-300">Sign in to continue to your dashboard</p>
-            </div>
+        <div class="brand-body">
+          <h1 class="main-title">Sign in to your account</h1>
+          <p class="main-description">
+            Access your dashboard, follow your courses and manage your hours — fast and secure.
+          </p>
 
-            <form @submit.prevent="handleLogin" class="space-y-4">
-              <FormField
-                v-model="form.email"
-                label="Email"
-                type="email"
-                placeholder="your.email@example.com"
-                required
-                autocomplete="email"
+          <ul class="feature-list">
+            <li><span class="dot"></span> Access courses and resources</li>
+            <li><span class="dot"></span> Track attendance and hours</li>
+            <li><span class="dot"></span> Manage your profile</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Right Panel: Clean Form -->
+      <div class="form-panel">
+        <div class="form-content">
+          <div class="form-header">
+            <h2 class="welcome-title">Welcome back</h2>
+            <p class="welcome-subtitle">Sign in to continue to your dashboard</p>
+          </div>
+
+          <form @submit.prevent="handleLogin" class="auth-form">
+            <div class="field">
+              <label for="email" class="field-label">Email</label>
+              <InputText 
+                id="email"
+                v-model="form.email" 
+                placeholder="moi@gmail.com" 
+                class="custom-input" 
+                required 
               />
+            </div>
 
-              <FormField
-                v-model="form.password"
-                label="Password"
-                type="password"
-                placeholder="••••••••"
-                required
-                autocomplete="current-password"
+            <div class="field">
+              <label for="password" class="field-label">Password</label>
+              <Password 
+                id="password"
+                v-model="form.password" 
+                placeholder="••••••••••••" 
+                class="custom-input custom-password" 
+                toggleMask 
+                :feedback="false"
+                required 
               />
-
-              <button
-                type="submit"
-                :disabled="loading"
-                class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 
-                       text-white font-semibold rounded-lg transition-colors duration-200
-                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                {{ loading ? 'Signing in...' : 'Sign in' }}
-              </button>
-            </form>
-
-            <div class="mt-4 flex items-center justify-between text-sm">
-              <router-link to="/forgot-password" class="text-blue-600 hover:underline">Forgot password?</router-link>
-              <!-- optional small link to signup / help (keeps everything in English) -->
-              <router-link to="/help" class="text-slate-500 hover:underline hidden sm:inline">Need help?</router-link>
             </div>
 
-            <!-- subtle footer -->
-            <div class="mt-6 text-center text-xs text-slate-400">
-              © <span class="font-medium">Gestion</span> • All rights reserved
+            <Button 
+              type="submit" 
+              label="Sign in" 
+              :loading="loading" 
+              class="signin-btn"
+            />
+
+            <div class="form-footer-v2">
+              <router-link to="/forgot-password" class="footer-link-blue">Forgot password?</router-link>
+              <span class="footer-link-grey">Need help?</span>
             </div>
+          </form>
+
+          <div class="copyright-v2">
+             © Gestion • All rights reserved
           </div>
         </div>
       </div>
     </div>
-
   </div>
 </template>
+
+<style scoped>
+.login-page-v2 {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #F1F4F9; /* Subtle light background */
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+.dark .login-page-v2 {
+  background-color: #0F172A;
+}
+
+.login-card-container {
+  width: 100%;
+  max-width: 1050px;
+  height: 580px;
+  display: flex;
+  background: white;
+  border-radius: 2rem;
+  overflow: hidden;
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.12);
+}
+
+.dark .login-card-container {
+  background: #1E293B;
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.4);
+}
+
+/* Left Panel */
+.brand-panel {
+  flex: 1.1;
+  background: linear-gradient(135deg, #6366F1 0%, #4F46E5 30%, #06B6D4 100%);
+  padding: 4rem;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  position: relative;
+}
+
+.brand-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 5rem;
+}
+
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.brand-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.main-title {
+  font-size: 2.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  letter-spacing: -1px;
+}
+
+.main-description {
+  font-size: 1.05rem;
+  opacity: 0.9;
+  line-height: 1.5;
+  margin-bottom: 2.5rem;
+  font-weight: 500;
+}
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.feature-list li {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+/* Right Panel */
+.form-panel {
+  flex: 0.9;
+  background: white;
+  padding: 4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dark .form-panel {
+  background: #1E293B;
+}
+
+.form-content {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.welcome-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #000000; /* Pure black */
+  margin-bottom: 0.5rem;
+}
+
+.dark .welcome-title { color: white; }
+
+.welcome-subtitle {
+  font-size: 1rem;
+  color: #334155; /* Darker slate for readability */
+  font-weight: 500;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #000000; /* Pure black labels */
+}
+
+.dark .field-label { color: #CBD5E1; }
+
+.custom-input {
+  width: 100%;
+  background-color: #F8FAFC !important;
+  border: 1.5px solid #E2E8F0 !important;
+  color: #000000 !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: 0.5rem !important;
+  font-weight: 600;
+}
+
+.dark .custom-input {
+  background-color: #0F172A !important;
+  border-color: #334155 !important;
+  color: #FFFFFF !important;
+}
+
+:deep(.p-password-input) {
+  width: 100%;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.signin-btn {
+  background: #2563EB !important; /* Vibrant primary blue */
+  border: none !important;
+  padding: 0.875rem !important;
+  font-weight: 700 !important;
+  border-radius: 0.5rem !important;
+  color: white !important;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2) !important;
+  font-size: 1rem !important;
+  margin-top: 0.5rem;
+}
+
+.form-footer-v2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.footer-link-blue {
+  font-size: 0.85rem;
+  color: #2563EB;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.footer-link-grey {
+  font-size: 0.85rem;
+  color: #64748B;
+  font-weight: 600;
+}
+
+.copyright-v2 {
+  margin-top: 3rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94A3B8;
+  font-weight: 600;
+}
+
+/* Animations */
+.animate-fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .login-card-container {
+    height: auto;
+    flex-direction: column;
+    max-width: 450px;
+  }
+  .brand-panel {
+    padding: 2.5rem;
+    min-height: 250px;
+  }
+  .brand-header { margin-bottom: 2rem; }
+  .main-title { font-size: 2rem; }
+  .form-panel {
+    padding: 2.5rem;
+  }
+}
+</style>

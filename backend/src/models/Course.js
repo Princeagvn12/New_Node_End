@@ -10,6 +10,7 @@ const CourseSchema = new Schema(
 		department: { type: Schema.Types.ObjectId, ref: 'Department', required: true },
 		teacher: { type: Schema.Types.ObjectId, ref: 'User' },
 		students: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+		credits: { type: Number, default: 0 },
 	},
 	{ timestamps: true }
 );

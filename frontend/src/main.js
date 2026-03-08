@@ -3,6 +3,11 @@ import { createPinia } from 'pinia'
 import Vue3Toastify from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
 
+// PrimeVue
+import PrimeVue from 'primevue/config'
+import Aura from '@primeuix/themes/aura'
+import 'primeicons/primeicons.css'
+
 // Add custom styles for glassmorphic toasts
 const style = document.createElement('style')
 style.textContent = `
@@ -74,6 +79,15 @@ app.use(createPinia())
 app.use(router)
 app.use(Vue3Toastify)
 app.use(confirmPlugin)
+app.use(PrimeVue, {
+  theme: {
+    preset: Aura,
+    options: {
+      darkModeSelector: '.dark',
+      cssLayer: false
+    }
+  }
+})
 
 // initialize theme (reads system preference or stored choice)
 initTheme()

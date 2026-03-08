@@ -1,5 +1,5 @@
 <script setup>
-import Navbar from './components/common/Navbar.vue'
+import MainLayout from './components/layout/MainLayout.vue'
 import ConfirmDialog from './components/common/ConfirmDialog.vue'
 import { confirmState, handleConfirm, handleCancel } from './plugins/confirmPlugin'
 import { useRoute } from 'vue-router'
@@ -11,14 +11,14 @@ const store = useUserStore()
 
 const noNavRoutes = ['Login', 'ForgotPassword', 'ResetPassword']
 
-// show navbar only when user is authenticated and not on auth-related routes
-const showNavbar = computed(() => {
+// show layout only when user is authenticated and not on auth-related routes
+const showLayout = computed(() => {
   return !!store.isAuthenticated && !noNavRoutes.includes(route.name)
 })
 
 // keep page from scrolling on login/forgot/reset pages (when user not authenticated)
 const applyOverflow = () => {
-  const shouldHide = !showNavbar.value
+  const shouldHide = !showLayout.value
   document.documentElement.style.overflow = shouldHide ? 'hidden' : ''
   document.body.style.overflow = shouldHide ? 'hidden' : ''
 }
@@ -37,11 +37,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors">
-    <Navbar v-if="showNavbar" />
-    <main class="container mx-auto px-4 py-6">
+  <div class="min-h-screen" style="background: var(--surface-bg); color: var(--text-primary); transition: background-color 0.3s, color 0.3s;">
+    <!-- Authenticated: sidebar + topbar layout -->
+    <MainLayout v-if="showLayout">
       <router-view />
-    </main>
+    </MainLayout>
+
+    <!-- Unauthenticated: auth pages without layout -->
+    <router-view v-else />
 
     <ConfirmDialog
       v-model="confirmState.isOpen"
@@ -57,16 +60,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* Global styles for transitions */
+/* Transitions */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
-
-/* Note: no extra CSS for layout — Tailwind only in components */
 </style>

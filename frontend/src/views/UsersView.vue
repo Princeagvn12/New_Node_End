@@ -1,63 +1,83 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import userService from '../services/user.service'
-import Table from '../components/common/Table.vue'
-import FormField from '../components/common/FormField.vue'
 import departmentService from '../services/department.service'
 import courseService from '../services/course.service'
 import { useUserStore } from '../store/user.store'
 import { showSuccess, showError } from '../utils/toast'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
+import Dialog from 'primevue/dialog'
+import Tag from 'primevue/tag'
+import Avatar from 'primevue/avatar'
 
 const userStore = useUserStore()
-// local confirm dialog state (uses the inline confirmation UI in this view)
-const confirmAction = (message, action) => {
-  confirmDialog.value = { show: true, message, action }
-}
-const executeConfirmedAction = async () => {
-  if (confirmDialog.value.action) {
-    await confirmDialog.value.action()
-  }
-  confirmDialog.value = { show: false, message: '', action: null }
-}
 const users = ref([])
 const loading = ref(false)
-const confirmDialog = ref({ show: false, message: '', action: null })
+const showCreate = ref(false)
 const editingUser = ref(null)
+const departments = ref([])
+const allCourses = ref([])
+
+const searchQuery = ref('')
+const selectedRole = ref('all')
+
+const form = ref({ name: '', email: '', password: '', role: 'etudiant', department: '' })
+
+// Dialog states
+const confirmDialog = ref({ show: false, message: '', action: null })
+const assignDialog = ref({ show: false, student: null, choices: [], selected: '' })
+
 const canManageUsers = computed(() => ['admin', 'rh'].includes(userStore.user?.role))
 const isTeacherView = computed(() => ['formateur', 'formateur_principal'].includes(userStore.user?.role))
 
-const showCreate = ref(false)
-const form = ref({ name: '', email: '', password: '', role: 'etudiant', department: '' })
-const columns = [
-  { key: 'name', label: 'Name' },
-  { key: 'email', label: 'Email' },
-  { key: 'role', label: 'Role' },
-  { key: 'department', label: 'Department' },
-  { key: 'isActive', label: 'Status' }
-]
-const departments = ref([])
-const allCourses = ref([])
-const assignDialog = ref({ show: false, student: null, choices: [], selected: '' })
+const stats = computed(() => {
+  return [
+    { label: 'Total Users', value: users.value.length },
+    { label: 'Active Now', value: users.value.filter(u => u.isActive).length }
+  ]
+})
 
-// helper to normalize id values (accepts object with _id or id, or raw id)
+const filteredUsers = computed(() => {
+  return users.value.filter(u => {
+    const matchesSearch = !searchQuery.value || 
+      u.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.value.toLowerCase())
+    const matchesRole = selectedRole.value === 'all' || u.role === selectedRole.value
+    return matchesSearch && matchesRole
+  })
+})
+
+const avatarColors = [
+  '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899',
+  '#F59E0B', '#14B8A6', '#10B981', '#F43F5E'
+]
+const getAvatarColor = (name) => {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return avatarColors[Math.abs(hash) % avatarColors.length]
+}
+
+const getInitials = (name) => {
+  if (!name) return '?'
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
+
 const idOf = (v) => (v && (v._id || v.id || v))
 
 const load = async () => {
   loading.value = true
   try {
-    // If teacher/formateur_principal -> only load students
     if (isTeacherView.value) {
-      const res = await userService.getStudents()
-      users.value = res
-      // load courses to allow unassign (we'll filter per student)
-      const coursesRes = await courseService.getAll()
-      allCourses.value = coursesRes || []
+      users.value = await userService.getStudents()
+      allCourses.value = await courseService.getAll() || []
     } else {
-      const res = await userService.getAll()
-      users.value = res
+      users.value = await userService.getAll()
     }
   } catch (e) {
-    console.error(e)
     showError('Failed to load users')
   } finally {
     loading.value = false
@@ -66,123 +86,81 @@ const load = async () => {
 
 const loadDepartments = async () => {
   try {
-    const res = await departmentService.getAll()
-    departments.value = res || []
-    console.log(departments.value);
-  } catch (e) {
-    console.error(e)
-  }
+    departments.value = await departmentService.getAll() || []
+  } catch (e) {}
 }
 
 const saveUser = async () => {
-  // simple validation
   if (!form.value.name || !form.value.email) {
     showError('Name and email are required')
     return
   }
-
   try {
     if (editingUser.value) {
-      // when editing, password is optional
       const payload = { ...form.value }
       if (!payload.password) delete payload.password
       await userService.update(editingUser.value._id, payload)
       showSuccess('User updated')
     } else {
-      if (!form.value.password) { showError('Password is required for new users'); return }
+      if (!form.value.password) { showError('Password is required'); return }
       await userService.create(form.value)
       showSuccess('User created')
     }
-
-    form.value = { name: '', email: '', password: '', role: 'etudiant', department: '' }
-    showCreate.value = false
-    editingUser.value = null
+    resetForm()
     await load()
   } catch (e) {
-    console.error(e)
     showError(e?.response?.data?.message || 'Failed to save user')
   }
 }
 
-const toggleActivate = async (row) => {
-  if (row._id === userStore.user?._id) {
-    showError('You cannot deactivate your own account')
-    return
-  }
-
-  // If admin/rh -> use existing flow
-  if (canManageUsers.value) {
-    confirmAction(`Are you sure you want to ${row.isActive ? 'deactivate' : 'activate'} ${row.name}?`, async () => {
-      try {
-        await userService.activate(row._id, !row.isActive)
-        showSuccess(row.isActive ? 'User deactivated' : 'User activated')
-        await load()
-      } catch (e) {
-        console.error(e)
-        showError('Failed to toggle activation')
-      }
-    })
-    return
-  }
-
-  // If teacher -> limited student activation
-  if (isTeacherView.value) {
-    confirmAction(`Are you sure you want to ${row.isActive ? 'deactivate' : 'activate'} ${row.name}?`, async () => {
-      try {
-        await userService.teacherToggleStudentActive(row._id)
-        showSuccess(row.isActive ? 'Student deactivated' : 'Student activated')
-        await load()
-      } catch (e) {
-        console.error(e)
-        showError(e?.response?.data?.message || 'Failed to toggle activation')
-      }
-    })
-    return
-  }
+const resetForm = () => {
+  form.value = { name: '', email: '', password: '', role: 'etudiant', department: '' }
+  showCreate.value = false
+  editingUser.value = null
 }
 
-const unassignStudentFromCourse = async (row) => {
-  // Build list of courses where this student is enrolled and that the teacher can manage
-  const studentCourses = allCourses.value.filter(c => Array.isArray(c.students) && c.students.some(s => String(idOf(s)) === String(idOf(row._id))))
-  const manageable = studentCourses.filter(c => {
-    if (userStore.user?.role === 'formateur') {
-      return String(idOf(c.teacher)) === String(idOf(userStore.user?._id))
-    } else if (userStore.user?.role === 'formateur_principal') {
-      return String(idOf(c.department)) === String(idOf(userStore.user?.department))
-    }
-    return false
-  })
-
-  if (manageable.length === 0) {
-    showError('Aucun cours disponible pour désaffectation pour cet étudiant')
-    return
+const editUser = (u) => {
+  editingUser.value = u
+  form.value = { 
+    name: u.name, 
+    email: u.email, 
+    password: '', 
+    role: u.role, 
+    department: u.department?._id || u.department || '' 
   }
+  showCreate.value = true
+}
 
-  // Prefill assignDialog to allow selection of which course to remove
-  assignDialog.value = {
+const deleteUser = (u) => {
+  if (u._id === userStore.user?._id) { showError("You cannot delete yourself"); return }
+  confirmDialog.value = {
     show: true,
-    student: row,
-    choices: manageable,
-    selected: manageable.length === 1 ? String(idOf(manageable[0]._id)) : String(idOf(manageable[0]._id))
+    message: `Are you sure you want to delete ${u.name}?`,
+    action: async () => {
+      try {
+        await userService.remove(u._id)
+        showSuccess('User deleted')
+        await load()
+      } catch (e) { showError('Failed to delete user') }
+    }
   }
 }
 
-const confirmUnassign = async () => {
-  const dlg = assignDialog.value
-  if (!dlg.student || !dlg.selected) return
-  try {
-    await userService.teacherUpdateStudentCourse(dlg.student._id, { action: 'remove', courseId: dlg.selected })
-    showSuccess("Étudiant désaffecté du cours")
-    assignDialog.value = { show: false, student: null, choices: [], selected: '' }
-    await load()
-  } catch (e) {
-    console.error(e)
-    showError(e?.response?.data?.message || 'Failed to unassign student')
+const toggleActivate = (u) => {
+  confirmDialog.value = {
+    show: true,
+    message: `Are you sure you want to ${u.isActive ? 'deactivate' : 'activate'} ${u.name}?`,
+    action: async () => {
+      try {
+        await userService.activate(u._id, !u.isActive)
+        showSuccess(u.isActive ? 'User deactivated' : 'User activated')
+        await load()
+      } catch (e) { showError('Operation failed') }
+    }
   }
 }
 
 const openAssignDialog = (row) => {
-  // Build list of courses that the teacher/principal can manage
   const manageable = allCourses.value.filter(c => {
     if (userStore.user?.role === 'formateur') {
       return String(idOf(c.teacher)) === String(idOf(userStore.user?._id))
@@ -191,173 +169,279 @@ const openAssignDialog = (row) => {
     }
     return false
   })
-
-  // filter out courses where student is already enrolled
   const choices = manageable.filter(c => !(Array.isArray(c.students) && c.students.some(s => String(idOf(s)) === String(idOf(row._id)))))
   if (choices.length === 0) {
-    showError('Aucun cours disponible pour affectation pour cet étudiant')
+    showError('Aucun cours disponible')
     return
   }
-
   assignDialog.value = { show: true, student: row, choices, selected: String(idOf(choices[0]._id)) }
 }
 
 const confirmAssign = async () => {
   const dlg = assignDialog.value
-  if (!dlg.student || !dlg.selected) return
   try {
     await userService.teacherUpdateStudentCourse(dlg.student._id, { action: 'add', courseId: dlg.selected })
-    showSuccess("Étudiant affecté au cours")
-    assignDialog.value = { show: false, student: null, choices: [], selected: '' }
+    showSuccess("Étudiant affecté")
+    assignDialog.value.show = false
     await load()
-  } catch (e) {
-    console.error(e)
-    showError(e?.response?.data?.message || 'Failed to assign student')
-  }
+  } catch (e) { showError('Failed to assign') }
 }
 
-const editUser = (row) => {
-  editingUser.value = row
-  form.value = { name: row.name, email: row.email, password: '', role: row.role, department: row.department?._id || row.department || '' }
-  showCreate.value = true
-}
-
-const changeRole = async (row, newRole) => {
-  if (!newRole || newRole === row.role) return
-  confirmAction(`Change role of ${row.name} to ${newRole}?`, async () => {
-    try {
-      await userService.patchRole(row._id, newRole)
-      showSuccess('Role updated')
-      await load()
-    } catch (e) {
-      console.error(e)
-      showError(e?.response?.data?.message || 'Failed to change role')
-    }
-  })
-}
-
-const deleteUser = async (row) => {
-  if (row._id === userStore.user?._id) { showError("You cannot delete your own account"); return }
-  confirmAction(`Delete user ${row.name}?`, async () => {
-    try {
-      await userService.remove(row._id)
-      showSuccess('User deleted')
-      await load()
-    } catch (e) {
-      console.error(e)
-      showError(e?.response?.data?.message || 'Failed to delete user')
-    }
-  })
-}
-
-onMounted(async () => { await load(); await loadDepartments() })
+onMounted(() => {
+  load()
+  loadDepartments()
+})
 </script>
 
 <template>
-  <div>
-    <!-- Confirmation Dialog -->
-    <div v-if="confirmDialog.show" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-        <p class="text-lg mb-4">{{ confirmDialog.message }}</p>
-        <div class="flex justify-end gap-3">
-          <button @click="confirmDialog.show = false" class="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">
-            Cancel
-          </button>
-          <button @click="executeConfirmedAction" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
-            Confirm
-          </button>
+  <div class="px-8 py-6 min-h-screen bg-white dark:bg-[#0F172A] transition-colors duration-300">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
+      <div>
+        <h1 class="text-3xl font-extrabold text-[#111827] dark:text-[#F8FAFC] tracking-tight mb-1">Users Management</h1>
+        <p class="text-[#6B7280] dark:text-[#94A3B8] text-sm">Manage platform access, roles, and departmental assignments.</p>
+      </div>
+      <div class="flex items-center gap-6">
+        <div v-for="stat in stats" :key="stat.label" class="flex flex-col items-end">
+          <span class="text-[10px] uppercase font-bold text-[#6B7280] dark:text-[#94A3B8] tracking-widest">{{ stat.label }}</span>
+          <span class="text-2xl font-black text-[#111827] dark:text-[#F8FAFC]">{{ stat.value }}</span>
         </div>
+        <Button 
+          v-if="canManageUsers" 
+          @click="showCreate = true" 
+          label="Create User" 
+          icon="pi pi-plus" 
+          class="p-button-primary rounded-lg px-6 font-bold shadow-md hover:shadow-lg transform transition-all active:scale-95"
+        />
       </div>
     </div>
 
-    <!-- Assign/Unassign Dialog -->
-    <div v-if="assignDialog.show" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-        <h3 class="text-lg font-semibold mb-3">Affectation / Désaffectation</h3>
-        <p class="mb-3">Étudiant: <strong>{{ assignDialog.student?.name }}</strong></p>
-        <div>
-          <label class="block text-sm mb-1">Choisir un cours</label>
-          <select v-model="assignDialog.selected" class="w-full p-2 rounded border">
-            <option v-for="c in assignDialog.choices" :key="c._id" :value="String(c._id)">{{ c.title }}</option>
-          </select>
-        </div>
-        <div class="flex justify-end gap-3 mt-4">
-          <button @click="assignDialog.show = false" class="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-          <button @click="confirmAssign" class="px-4 py-2 bg-blue-500 text-white rounded">Assign</button>
-          <button @click="confirmUnassign" class="px-4 py-2 bg-red-500 text-white rounded">Unassign</button>
-        </div>
+    <!-- Search & Filters Container -->
+    <div class="p-4 mb-6 bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-[#1E293B] rounded-xl flex flex-col md:flex-row gap-4 shadow-sm">
+      <div class="relative flex-1">
+        <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280] dark:text-[#94A3B8]"></i>
+        <InputText 
+          v-model="searchQuery" 
+          placeholder="Search for a name or email..." 
+          class="w-full pl-11 !border-none !bg-transparent dark:text-[#F8FAFC] focus:ring-0" 
+        />
       </div>
+      <div class="h-10 w-[1px] bg-[#E5E7EB] dark:bg-[#334155] hidden md:block"></div>
+      <Select 
+        v-model="selectedRole" 
+        :options="[
+          {label: 'All Roles', value: 'all'},
+          {label: 'Admin', value: 'admin'},
+          {label: 'RH', value: 'rh'},
+          {label: 'Principal Teacher', value: 'formateur_principal'},
+          {label: 'Teacher', value: 'formateur'},
+          {label: 'Student', value: 'etudiant'}
+        ]"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Filter by Role"
+        class="w-full md:w-56 !border-none !bg-transparent dark:text-[#F8FAFC] focus:ring-0"
+      />
     </div>
 
-    <h1 class="text-2xl font-semibold text-blue-400">Users</h1>
-    <div class="mt-4 flex justify-between items-center">
-      <button v-if="canManageUsers" @click="showCreate = !showCreate" 
-        class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors">
-        {{ showCreate ? 'Cancel' : 'Create User' }}
-      </button>
-    </div>
-
-    <div v-if="showCreate" class="mt-4 p-6 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm rounded-lg shadow-md">
-      <h2 class="text-xl font-semibold mb-4">{{ editingUser ? 'Edit User' : 'Create New User' }}</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField v-model="form.name" label="Name" required />
-        <FormField v-model="form.email" label="Email" type="email" required />
-        <FormField v-model="form.password" label="Password" type="password" :required="!editingUser" />
-        <div>
-          <label class="block text-sm mb-1">Role</label>
-          <select v-model="form.role" class="w-full p-2 rounded border">
-            <option value="admin">admin</option>
-            <option value="rh">rh</option>
-            <option value="formateur_principal">formateur_principal</option>
-            <option value="formateur">formateur</option>
-            <option value="etudiant">etudiant</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm mb-1">Department</label>
-          <select v-model="form.department" class="w-full p-2 rounded border">
-            <option value="">-- none --</option>
-            <option v-for="d in departments" :key="d._id" :value="d._id">{{ d.name }}</option>
-          </select>
-        </div>
-      </div>
-      <div class="mt-3 text-right">
-        <button @click="saveUser" class="px-3 py-1 bg-blue-400 text-white rounded">{{ editingUser ? 'Update' : 'Create' }}</button>
-      </div>
-    </div>
-    <div v-if="loading">Loading...</div>
-    <div v-else class="mt-4">
-      <Table :columns="columns" :rows="users">
-        <template #cell-department="{ row }">
-          {{ row.department?.name || '-' }}
-        </template>
-        <!-- In the actions slot, show teacher-specific buttons -->
-        <template #actions="{ row }">
-          <div v-if="canManageUsers" class="flex items-center gap-2">
-            <button @click="editUser(row)" class="px-2 py-1 text-sm rounded bg-slate-200 hover:bg-slate-300">Edit</button>
-            <button @click="toggleActivate(row)" class="px-2 py-1 text-sm rounded bg-amber-100 hover:bg-amber-200">
-              {{ row.isActive ? 'Desactivate' : 'Activate' }}
-            </button>
-            <select :value="row.role" @change.prevent="changeRole(row, $event.target.value)" class="p-1 rounded border text-sm" :disabled="row._id === userStore.user?._id">
-              <option value="admin">admin</option>
-              <option value="rh">rh</option>
-              <option value="formateur_principal">formateur_principal</option>
-              <option value="formateur">formateur</option>
-              <option value="etudiant">etudiant</option>
-            </select>
-            <button @click="deleteUser(row)" class="px-2 py-1 text-sm rounded bg-red-100 hover:bg-red-200">Delete</button>
+    <!-- DataTable -->
+    <DataTable 
+      :value="filteredUsers" 
+      :loading="loading" 
+      class="p-datatable-modern"
+      responsiveLayout="scroll"
+      removableSort
+      stripedRows
+    >
+      <Column header="USER" sortable sortField="name">
+        <template #body="{ data }">
+          <div class="flex items-center gap-4 py-1">
+            <div 
+              class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
+              :style="{ backgroundColor: getAvatarColor(data.name) }"
+            >
+              {{ getInitials(data.name) }}
+            </div>
+            <div class="flex flex-col">
+              <span class="font-bold text-[#111827] dark:text-[#F8FAFC] text-[15px]">{{ data.name }}</span>
+              <span class="text-[#6B7280] dark:text-[#94A3B8] text-xs font-medium">{{ data.email }}</span>
+            </div>
           </div>
-          <div v-else-if="isTeacherView" class="flex items-center gap-2">
-            <button @click="openAssignDialog(row)" class="px-2 py-1 text-sm rounded bg-green-100 hover:bg-green-200">Affecter</button>
-            <button @click="unassignStudentFromCourse(row)" class="px-2 py-1 text-sm rounded bg-amber-100 hover:bg-amber-200">Désaffecter</button>
-            <button @click="toggleActivate(row)" class="px-2 py-1 text-sm rounded bg-red-100 hover:bg-red-200">
-              {{ row.isActive ? 'Désactiver' : 'Activer' }}
+        </template>
+      </Column>
+
+      <Column field="role" header="ROLE" sortable>
+        <template #body="{ data }">
+          <span class="text-sm font-medium text-[#374151] dark:text-[#CBD5E1] capitalize">
+            {{ data.role.replace('_', ' ') }}
+          </span>
+        </template>
+      </Column>
+
+      <Column header="DEPARTMENT" sortable sortField="department.name">
+        <template #body="{ data }">
+          <span class="text-sm text-[#6B7280] dark:text-[#94A3B8]">
+            {{ data.department?.name || '—' }}
+          </span>
+        </template>
+      </Column>
+
+      <Column header="STATUS" sortable field="isActive">
+        <template #body="{ data }">
+          <div class="flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full" :class="data.isActive ? 'bg-[#22C55E]' : 'bg-[#EF4444]'"></div>
+            <span class="text-sm font-medium" :class="data.isActive ? 'text-[#22C55E]' : 'text-[#EF4444]'">
+              {{ data.isActive ? 'Active' : 'Deactivated' }}
+            </span>
+          </div>
+        </template>
+      </Column>
+
+      <Column header="ACTIONS" headerStyle="text-align: center" bodyStyle="text-align: center">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-4">
+            <button v-if="canManageUsers || isTeacherView" @click="editUser(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#3B82F6] transition-colors" title="Edit">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button v-if="canManageUsers || isTeacherView" @click="toggleActivate(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#F59E0B] transition-colors" title="Deactivate">
+              <i class="pi pi-ban"></i>
+            </button>
+            <button v-if="isTeacherView" @click="openAssignDialog(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#6366F1] transition-colors" title="Assign Course">
+              <i class="pi pi-link"></i>
+            </button>
+            <button v-if="canManageUsers" @click="deleteUser(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#EF4444] transition-colors" title="Delete">
+              <i class="pi pi-trash"></i>
             </button>
           </div>
-          <div v-else class="text-sm text-gray-500">-</div>
         </template>
-      </Table>
-    </div>
+      </Column>
+
+      <template #footer>
+        <div class="py-2 text-xs font-semibold text-[#6B7280] dark:text-[#94A3B8] uppercase tracking-wider">
+          Total Users: {{ filteredUsers.length }}
+        </div>
+      </template>
+
+      <template #empty>
+        <div class="py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#334155] rounded-xl flex flex-col items-center">
+          <i class="pi pi-users text-4xl text-[#E5E7EB] dark:text-[#334155] mb-2"></i>
+          <p class="text-[#6B7280] dark:text-[#94A3B8] font-medium">No platform users found.</p>
+        </div>
+      </template>
+    </DataTable>
+
+    <!-- Create/Edit User Dialog -->
+    <Dialog 
+      v-model:visible="showCreate" 
+      :header="editingUser ? 'Edit User Profile' : 'Create New User'" 
+      modal 
+      class="p-fluid max-w-lg w-full"
+      :breakpoints="{'960px': '75vw', '641px': '90vw'}"
+    >
+      <div class="grid grid-cols-1 gap-6 pt-2">
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Full Name</label>
+          <InputText v-model="form.name" placeholder="John Doe" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Email Address</label>
+          <InputText v-model="form.email" type="email" placeholder="john.doe@university.com" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Password</label>
+          <InputText v-model="form.password" type="password" :placeholder="editingUser ? '(Leave empty to keep current)' : '••••••••'" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Role</label>
+            <Select 
+              v-model="form.role" 
+              :options="[
+                {label: 'Student', value: 'etudiant'},
+                {label: 'Teacher', value: 'formateur'},
+                {label: 'Principal Teacher', value: 'formateur_principal'},
+                {label: 'RH', value: 'rh'},
+                {label: 'Admin', value: 'admin'}
+              ]"
+              optionLabel="label"
+              optionValue="value"
+              class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg"
+            />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Department</label>
+            <Select 
+              v-model="form.department" 
+              :options="departments"
+              optionLabel="name"
+              optionValue="_id"
+              placeholder="Select Dept"
+              class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg"
+            />
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex gap-3 justify-end mt-2">
+          <Button label="Cancel" @click="resetForm" class="p-button-text p-button-secondary font-bold" />
+          <Button @click="saveUser" :label="editingUser ? 'Save Changes' : 'Create User'" class="p-button-primary rounded-lg px-8 font-bold shadow-md" />
+        </div>
+      </template>
+    </Dialog>
+
+    <!-- Generic Confirm Dialog Overlay -->
+    <Dialog v-model:visible="confirmDialog.show" modal header="Confirmation Required" class="max-w-md w-full">
+      <div class="flex flex-col items-center text-center p-4">
+        <i class="pi pi-exclamation-triangle text-4xl text-[#F59E0B] mb-4"></i>
+        <p class="text-[#374151] dark:text-[#CBD5E1] font-medium">{{ confirmDialog.message }}</p>
+      </div>
+      <template #footer>
+        <div class="flex justify-center gap-3">
+          <Button label="Cancel" @click="confirmDialog.show = false" class="p-button-text font-bold" />
+          <Button label="Confirm Action" @click="confirmDialog.action(); confirmDialog.show = false" class="p-button-danger rounded-lg px-8 font-bold shadow-md" />
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
-<!-- placeholder: frontend/src/views/UsersView.vue -->
+
+<style>
+/* PrimeVue Modern DataTable Overrides */
+.p-datatable-modern .p-datatable-thead > tr > th {
+  background: transparent !important;
+  color: #6B7280 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  border-bottom: 2px solid #F3F4F6 !important;
+  padding: 1rem 0.5rem !important;
+}
+
+.dark .p-datatable-modern .p-datatable-thead > tr > th {
+  color: #94A3B8 !important;
+  border-bottom: 2px solid #334155 !important;
+}
+
+.p-datatable-modern .p-datatable-tbody > tr {
+  background: transparent !important;
+  border-bottom: 1px solid #F9FAFB !important;
+}
+
+.dark .p-datatable-modern .p-datatable-tbody > tr {
+  border-bottom: 1px solid #334155 !important;
+}
+
+.p-datatable-modern .p-datatable-tbody > tr:hover {
+  background: #F9FAFB !important;
+}
+
+.dark .p-datatable-modern .p-datatable-tbody > tr:hover {
+  background: #334155 !important;
+}
+
+.p-datatable-modern .p-datatable-tbody > tr > td {
+  border: none !important;
+  padding: 1.25rem 0.5rem !important;
+}
+</style>

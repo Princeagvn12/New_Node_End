@@ -6,7 +6,8 @@ const {User} = require('../models/User');
 const getDepartments = async (req, res, next) => {
   try {
     const departments = await Department.find()
-      .populate('mainTeacher', 'name email');
+      .populate('mainTeacher', 'name email')
+      .populate('courses');
     
     return createResponse(res, 200, 'Départements récupérés avec succès', { departments });
   } catch (error) {
@@ -18,7 +19,8 @@ const getDepartments = async (req, res, next) => {
 const getDepartmentById = async (req, res, next) => {
   try {
     const department = await Department.findById(req.params.id)
-      .populate('mainTeacher', 'name email');
+      .populate('mainTeacher', 'name email')
+      .populate('courses');
     
     if (!department) {
       return createResponse(res, 404, 'Département non trouvé');

@@ -1,0 +1,201 @@
+# Frontend Redesign — Gestion School Management Platform
+
+Redesign all frontend pages of the Vue 3 school management app to feel like a modern 2025 SaaS dashboard, guided by the Stitch-generated screens (project `3331276433239099`) and the instructions in [gestion-redesign-prompt.md](file:///c:/work/New_Node_End/gestion-redesign-prompt.md). **Only presentation-layer changes** — no logic, API, route, or store modifications.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **PrimeVue v4 integration**: The redesign prompt specifies PrimeVue v4 with the Aura preset. This will be installed via npm alongside the existing TailwindCSS v4 setup. PrimeVue components will be imported on-demand (tree-shakeable) — no global registration of all components.
+
+> [!WARNING]
+> **TailwindCSS v4 compatibility**: The project already uses TailwindCSS v4 (`@tailwindcss/vite` plugin). PrimeVue's `@primeuix/styled` theme will be used alongside it. The `@tailwind` directives in [main.css](file:///c:/work/New_Node_End/frontend/main.css) will be updated to TW v4's `@import "tailwindcss"` syntax.
+
+---
+
+## Proposed Changes
+
+### Foundation — Dependencies & Config
+
+#### [MODIFY] [package.json](file:///c:/work/New_Node_End/frontend/package.json)
+- Add: `primevue`, `@primeuix/themes`, `primeicons`
+- Run `npm install`
+
+#### [MODIFY] [index.html](file:///c:/work/New_Node_End/frontend/index.html)
+- Add Google Fonts `Inter` link
+- Update `<title>` to `Gestion — School Management`
+- Add PrimeIcons CSS link
+
+#### [MODIFY] [main.js](file:///c:/work/New_Node_End/frontend/main.js)
+- Register PrimeVue plugin with Aura theme preset
+- Import PrimeIcons CSS
+- Keep all existing plugin registrations (Pinia, Router, vue3-toastify, confirmPlugin)
+
+#### [MODIFY] [main.css](file:///c:/work/New_Node_End/frontend/src/main.css)
+- Switch to TW v4 `@import "tailwindcss"` syntax
+- Add design system custom properties (colors, radii, shadows)
+- Add `.glass-card` utility class globally
+- Add transition utilities
+
+---
+
+### Layout Shell — Sidebar + TopBar
+
+#### [NEW] [MainLayout.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/MainLayout.vue)
+- Wrapper that renders `Sidebar` + `TopBar` + `<slot>` content area
+- Only shown for authenticated users (non-auth routes)
+
+#### [NEW] [Sidebar.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/Sidebar.vue)
+- Collapsible left sidebar (icon+label → icon-only on toggle)
+- Role-aware navigation items with icons
+- Active route highlighted with colored left border accent
+- Footer: user avatar initials, name, role badge, logout icon
+- Reproduces the sidebar layout from Stitch screens (Admin Dashboard, Department Management, etc.)
+
+#### [NEW] [TopBar.vue](file:///c:/work/New_Node_End/frontend/src/components/layout/TopBar.vue)
+- App logo/name ("Gestion"), hamburger menu to toggle sidebar
+- Light/dark mode toggle button
+- User avatar (initials) + name + logout button
+- Consistent with Stitch screen topbar design
+
+#### [MODIFY] [App.vue](file:///c:/work/New_Node_End/frontend/src/App.vue)
+- Replace `<Navbar v-if="showNavbar">` with `<MainLayout v-if="showNavbar">` wrapping `<router-view>`
+- Auth pages (Login, ForgotPassword, ResetPassword) render without layout
+- Keep ConfirmDialog registration as-is
+
+#### [MODIFY] [Navbar.vue](file:///c:/work/New_Node_End/frontend/src/components/common/Navbar.vue)
+- Keep file but mark as deprecated (no longer imported in App.vue)
+
+---
+
+### Shared Components
+
+#### [NEW] [StatCard.vue](file:///c:/work/New_Node_End/frontend/src/components/common/StatCard.vue)
+- Props: `icon`, `label`, `value`, `accentColor`, `trend` (optional)
+- Elevated card with icon, colored accent bar, value
+
+#### [NEW] [PageHeader.vue](file:///c:/work/New_Node_End/frontend/src/components/common/PageHeader.vue)
+- Props: `title`, `subtitle`
+- Slot: `actions` (for "Create" buttons)
+
+#### [NEW] [EmptyState.vue](file:///c:/work/New_Node_End/frontend/src/components/common/EmptyState.vue)
+- Props: `icon`, `title`, `message`
+- Centered illustration/icon with text when no data
+
+#### [MODIFY] [FormField.vue](file:///c:/work/New_Node_End/frontend/src/components/common/FormField.vue)
+- Upgrade styling: rounded-lg inputs, proper dark mode, consistent padding
+- Keep same props/emits interface
+
+#### [MODIFY] [Table.vue](file:///c:/work/New_Node_End/frontend/src/components/common/Table.vue)
+- Add global search/filter input at top
+- Improve header styling, row hover effects
+- Add empty state with EmptyState component
+- Keep same slot interface (#actions, #cell-*)
+
+---
+
+### Auth Pages
+
+#### [MODIFY] [Login.vue](file:///c:/work/New_Node_End/frontend/src/views/Login.vue)
+- Richer splash screen (animated logo entrance, gradient blobs)
+- Two-panel layout from Stitch "Gestion Login Screen" design
+- Left panel: bold gradient (blue→indigo), logo, tagline, feature bullets with icons
+- Right panel: styled card with upgraded inputs, show/hide password toggle, loading spinner on button
+- Keep all existing logic (handleLogin, splash timer, form ref, etc.)
+
+#### [MODIFY] [ForgotPassword.vue](file:///c:/work/New_Node_End/frontend/src/views/ForgotPassword.vue)
+- Centered card with gradient blob background
+- Stepper-like progress indicator (Step 1 highlighted)
+- Styled input + button matching Login page design
+- Keep existing logic
+
+#### [MODIFY] [ResetPassword.vue](file:///c:/work/New_Node_End/frontend/src/views/ResetPassword.vue)
+- Centered card matching ForgotPassword design
+- Step 2 progress indicator
+- Clear validation feedback inline
+- Keep existing logic
+
+---
+
+### Dashboard
+
+#### [MODIFY] [Dashboard.vue](file:///c:/work/New_Node_End/frontend/src/views/Dashboard.vue)
+- Welcome banner with user name + date (matching Stitch "Admin Dashboard Overview")
+- Admin/RH: 3 StatCards (Users, Departments, Courses) with icons + colored accents
+- Admin/RH: Recent users as styled data table with avatar initials + role badge
+- Teacher views: styled stat cards for courses + hours
+- Student view: styled course list + hours summary
+- Keep all existing logic
+
+---
+
+### CRUD Management Pages
+
+#### [MODIFY] [DepartmentsView.vue](file:///c:/work/New_Node_End/frontend/src/views/DepartmentsView.vue)
+- PageHeader with "Create Department" button
+- DataTable with search, sorting, row hover (matching Stitch "Department Management List")
+- Create/Edit form in a Dialog/Drawer panel instead of inline
+- Icon buttons for edit/delete (replacing emoji)
+- EmptyState when no departments
+- Keep all existing CRUD logic
+
+#### [MODIFY] [CoursesView.vue](file:///c:/work/New_Node_End/frontend/src/views/CoursesView.vue)
+- Same pattern as Departments (matching Stitch "Gestion Course List View")
+- Department name as colored Tag badge
+- Student count as Badge component
+- Dialog for create/edit
+- Keep all existing logic
+
+#### [MODIFY] [UsersView.vue](file:///c:/work/New_Node_End/frontend/src/views/UsersView.vue)
+- Redesigned DataTable (matching Stitch "Gestion User Management Table")
+- Avatar initials column
+- Role Tags (color-coded: admin=red, formateur=blue, etc.)
+- Status badge (Active=green, Inactive=grey)
+- Styled confirm/assign dialogs
+- Keep all existing logic (confirmAction, assignDialog, etc.)
+
+#### [MODIFY] [HoursView.vue](file:///c:/work/New_Node_End/frontend/src/views/HoursView.vue)
+- Two-column layout: styled form card + entries table (matching Stitch "Hours Tracking Dashboard")
+- Styled select, date picker, number input
+- Keep all existing logic
+
+#### [MODIFY] [StudentHoursView.vue](file:///c:/work/New_Node_End/frontend/src/components/student/StudentHoursView.vue)
+- Hero stat card (Total hours, big number, gradient accent) — matching Stitch "Student Hours Analytics Dashboard"
+- Styled filter row
+- Charts with brand colors
+- Course summary cards with colored icons
+- Keep all existing logic (charts, PDF export, filters)
+
+---
+
+## Verification Plan
+
+### Build Verification
+```bash
+cd c:\work\New_Node_End\frontend
+npm run build
+```
+Must complete with zero errors.
+
+### Visual Browser Testing
+```bash
+cd c:\work\New_Node_End\frontend
+npm run dev
+```
+Then open `http://localhost:5173` in browser and verify:
+1. **Login page** — splash animation shows, two-panel layout renders, form submits correctly
+2. **Forgot/Reset Password** — gradient background, cards render properly
+3. **Dashboard** — StatCards display, role-specific sections render
+4. **Departments** — DataTable with search, create/edit dialog works
+5. **Courses** — DataTable, Tags, Badges visible
+6. **Users** — Avatar initials, role tags, status badges, dialogs work
+7. **Hours** — Teacher form + table, student charts render
+8. **Dark/Light toggle** — works on every page consistently
+9. **Sidebar** — collapses/expands, role-aware links, active state highlighted
+
+### Manual User Verification
+The user should log in with different roles (admin, formateur, etudiant) and verify:
+- Navigation sidebar shows correct items per role
+- All CRUD operations (create, edit, delete) still work
+- Charts render on student hours page
+- PDF export still functions
+- Dark mode toggle persists across page navigations
