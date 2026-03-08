@@ -1,0 +1,44 @@
+# Frontend Redesign — Gestion School Management Platform
+
+## Phase 1: Foundation Setup
+- [ ] Install PrimeVue v4 + Aura preset + PrimeIcons
+- [ ] Update [main.js](file:///c:/work/New_Node_End/frontend/src/main.js) to register PrimeVue plugin with Aura theme
+- [ ] Update [index.html](file:///c:/work/New_Node_End/frontend/index.html) with Google Fonts (Inter) + proper title/meta
+- [ ] Update [main.css](file:///c:/work/New_Node_End/frontend/main.css) with design system tokens (custom properties, glass-card, etc.)
+- [ ] Create [useTheme.js](file:///c:/work/New_Node_End/frontend/src/composables/useTheme.js) composable with reactive dark/light toggle stored in Pinia/localStorage
+
+## Phase 2: Layout Shell
+- [ ] Create `MainLayout.vue` with collapsible sidebar + topbar
+- [ ] Create `Sidebar.vue` (role-aware navigation, collapsible, icons)
+- [ ] Create `TopBar.vue` (logo, search placeholder, theme toggle, user avatar, logout)
+- [ ] Update [App.vue](file:///c:/work/New_Node_End/frontend/src/App.vue) to use new MainLayout for authenticated routes
+- [ ] Update router to NOT change (keep same routes/names/guards)
+
+## Phase 3: Shared Components
+- [ ] Create `StatCard.vue` (icon + stat + colored accent)
+- [ ] Create `PageHeader.vue` (title + subtitle + action slot)
+- [ ] Create `EmptyState.vue` (icon/illustration + message)
+- [ ] Upgrade [FormField.vue](file:///c:/work/New_Node_End/frontend/src/components/common/FormField.vue) (PrimeVue InputText/Password/Textarea styling)
+- [ ] Upgrade [Table.vue](file:///c:/work/New_Node_End/frontend/src/components/common/Table.vue) (styled data table with hover, search, sorting)
+- [ ] Upgrade [ConfirmDialog.vue](file:///c:/work/New_Node_End/frontend/src/components/common/ConfirmDialog.vue) (PrimeVue-styled dialog)
+
+## Phase 4: Auth Pages Redesign
+- [ ] Redesign [Login.vue](file:///c:/work/New_Node_End/frontend/src/views/Login.vue) (splash + two-panel with PrimeVue inputs + loading button)
+- [ ] Redesign [ForgotPassword.vue](file:///c:/work/New_Node_End/frontend/src/views/ForgotPassword.vue) (centered card, gradient blobs, stepper concept)
+- [ ] Redesign [ResetPassword.vue](file:///c:/work/New_Node_End/frontend/src/views/ResetPassword.vue) (code entry, gradient background)
+
+## Phase 5: Dashboard Redesign
+- [ ] Redesign [Dashboard.vue](file:///c:/work/New_Node_End/frontend/src/views/Dashboard.vue) (StatCards, welcome banner, DataTable for recent users, role-specific sections)
+
+## Phase 6: CRUD Pages Redesign
+- [ ] Redesign [DepartmentsView.vue](file:///c:/work/New_Node_End/frontend/src/views/DepartmentsView.vue) (DataTable + Dialog for create/edit, icon buttons)
+- [ ] Redesign [CoursesView.vue](file:///c:/work/New_Node_End/frontend/src/views/CoursesView.vue) (DataTable + Dialog, department Tag, student Badge)
+- [ ] Redesign [UsersView.vue](file:///c:/work/New_Node_End/frontend/src/views/UsersView.vue) (DataTable, avatar initials, role Tags, status badges, ToggleSwitch, ConfirmDialog)
+- [ ] Redesign [HoursView.vue](file:///c:/work/New_Node_End/frontend/src/views/HoursView.vue) (teacher: two-column form+table, PrimeVue Select/DatePicker)
+- [ ] Redesign [StudentHoursView.vue](file:///c:/work/New_Node_End/frontend/src/components/student/StudentHoursView.vue) (hero stat card, brand-colored charts, filter row, course cards)
+
+## Phase 7: Verification
+- [ ] Run `npm run build` to verify no compilation errors
+- [ ] Run `npm run dev` and browser-test each page visually
+- [ ] Verify dark/light mode toggle works across all pages
+- [ ] Verify all existing functionality still works (no logic changes)

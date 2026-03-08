@@ -8,8 +8,20 @@ const DepartmentSchema = new Schema(
 		description: { type: String },
 		mainTeacher: { type: Schema.Types.ObjectId, ref: 'User' },
 	},
-	{ timestamps: true }
+	{ 
+		timestamps: true,
+		toJSON: { virtuals: true },
+		toObject: { virtuals: true }
+	}
 );
+
+// Virtual for courses linked to this department
+DepartmentSchema.virtual('courses', {
+	ref: 'Course',
+	localField: '_id',
+	foreignField: 'department'
+});
+
 
 // Indexes
 // DepartmentSchema.index({ name: 1 });
