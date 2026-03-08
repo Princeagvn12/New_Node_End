@@ -5,15 +5,23 @@ import departmentService from '../services/department.service'
 import userService from '../services/user.service'
 import { useUserStore } from '../store/user.store'
 import { showSuccess, showError } from '../utils/toast'
-import PageHeader from '../components/common/PageHeader.vue'
-import FormField from '../components/common/FormField.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
+import MultiSelect from 'primevue/multiselect'
+import Dialog from 'primevue/dialog'
+import Tag from 'primevue/tag'
+import Avatar from 'primevue/avatar'
+import Textarea from 'primevue/textarea'
+import InputNumber from 'primevue/inputnumber'
 
 const userStore = useUserStore()
 const courses = ref([])
 const departments = ref([])
 const teachers = ref([])
+const studentsList = ref([])
 const loading = ref(false)
 const showCreate = ref(false)
 const editingCourse = ref(null)
@@ -23,20 +31,38 @@ const searchQuery = ref('')
 const selectedDept = ref('all')
 const selectedCredits = ref('all')
 
-const form = ref({ name: '', code: '', description: '', department: '', teacher: '', credits: 1 })
+const form = ref({ title: '', code: '', description: '', department: '', teacher: '', credits: 1, students: [] })
 
 const canManage = computed(() => ['admin', 'rh', 'formateur_principal'].includes(userStore.user?.role))
 
 const stats = computed(() => [
-  { label: 'Active Courses', value: courses.value.length, icon: 'pi pi-book', trend: '+2 from last semester', trendType: 'up' },
-  { label: 'Student Enrollment', value: '1,240', icon: 'pi pi-users', trend: 'Stable growth', trendType: 'neutral' },
-  { label: 'Pending Assignments', value: '4', icon: 'pi pi-id-card', trend: 'Action required', trendType: 'warning' }
+  { 
+    label: 'Active Courses', 
+    value: courses.value.length, 
+    icon: 'pi pi-book', 
+    trend: 'Total listed', 
+    trendType: 'neutral' 
+  },
+  { 
+    label: 'Total Enrollment', 
+    value: courses.value.reduce((acc, c) => acc + (c.students?.length || 0), 0), 
+    icon: 'pi pi-users', 
+    trend: 'Active students', 
+    trendType: 'up' 
+  },
+  { 
+    label: 'Unassigned Courses', 
+    value: courses.value.filter(c => !c.teacher).length, 
+    icon: 'pi pi-exclamation-circle', 
+    trend: 'Action required', 
+    trendType: 'warning' 
+  }
 ])
 
 const filteredCourses = computed(() => {
   return courses.value.filter(c => {
     const matchesSearch = !searchQuery.value || 
-      c.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+      c.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
       c.code.toLowerCase().includes(searchQuery.value.toLowerCase())
     const matchesDept = selectedDept.value === 'all' || (c.department?._id || c.department) === selectedDept.value
     const matchesCredits = selectedCredits.value === 'all' || String(c.credits) === selectedCredits.value
@@ -44,12 +70,11 @@ const filteredCourses = computed(() => {
   })
 })
 
+const avatarColors = ['#6366F1', '#8B5CF6', '#EC4899', '#3B82F6', '#14B8A6']
+const getAvatarColor = (index) => avatarColors[index % avatarColors.length]
 const getInitials = (name) => {
   if (!name) return '??'
-  const parts = name.split(' ')
-  return parts.length >= 2 
-    ? (parts[0][0] + parts[1][0]).toUpperCase()
-    : name.substring(0, 2).toUpperCase()
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
 const load = async () => {
@@ -58,6 +83,7 @@ const load = async () => {
     courses.value = await courseService.getAll()
     departments.value = await departmentService.getAll()
     teachers.value = await userService.getTeachers()
+    studentsList.value = await userService.getStudents()
   } catch (e) {
     showError('Failed to load data')
   } finally {
@@ -66,7 +92,7 @@ const load = async () => {
 }
 
 const saveCourse = async () => {
-  if (!form.value.name || !form.value.code) {
+  if (!form.value.title || !form.value.code) {
     showError('Name and code are required')
     return
   }
@@ -88,12 +114,13 @@ const saveCourse = async () => {
 const editCourse = (c) => {
   editingCourse.value = c
   form.value = { 
-    name: c.name, 
+    title: c.title, 
     code: c.code, 
     description: c.description || '', 
     department: c.department?._id || c.department || '', 
     teacher: c.teacher?._id || c.teacher || '',
-    credits: c.credits || 1
+    credits: c.credits || 0,
+    students: Array.isArray(c.students) ? c.students.map(s => s._id || s) : []
   }
   showCreate.value = true
 }
@@ -110,7 +137,7 @@ const deleteCourse = async (c) => {
 }
 
 const resetForm = () => {
-  form.value = { name: '', code: '', description: '', department: '', teacher: '', credits: 1 }
+  form.value = { title: '', code: '', description: '', department: '', teacher: '', credits: 1, students: [] }
   showCreate.value = false
   editingCourse.value = null
 }
@@ -119,431 +146,273 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="courses-view">
-    <!-- Header -->
-    <div class="header-section">
-      <div class="header-info">
-        <h1 class="page-title">Course Management</h1>
-        <p class="page-subtitle">Manage and organize school curriculum</p>
+  <div class="px-8 py-6 min-h-screen bg-white dark:bg-[#0F172A] transition-colors duration-300">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
+      <div>
+        <h1 class="text-3xl font-extrabold text-[#111827] dark:text-[#F8FAFC] tracking-tight mb-1">Course Management</h1>
+        <p class="text-[#6B7280] dark:text-[#94A3B8] text-sm">Manage and organize school curriculum.</p>
       </div>
-      <button v-if="canManage" @click="showCreate = true" class="btn-premium btn-primary">
-        <i class="pi pi-plus"></i>
-        Create New Course
-      </button>
+      <Button 
+        v-if="canManage" 
+        @click="showCreate = true" 
+        label="Create New Course" 
+        icon="pi pi-plus" 
+        class="p-button-primary rounded-lg px-6 font-bold shadow-md hover:shadow-lg transform transition-all active:scale-95"
+      />
     </div>
 
-    <!-- Filters Bar -->
-    <div class="filters-bar glass-card">
-      <div class="search-input">
-        <i class="pi pi-search"></i>
-        <input v-model="searchQuery" type="text" placeholder="Search by course name, code or teacher..." />
+    <!-- Search & Filters Container -->
+    <div class="p-4 mb-6 bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-[#1E293B] rounded-xl flex flex-col md:flex-row gap-4 shadow-sm items-center">
+      <div class="relative flex-1">
+        <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280] dark:text-[#94A3B8]"></i>
+        <InputText 
+          v-model="searchQuery" 
+          placeholder="Search by course name, code or teacher..." 
+          class="w-full pl-11 !border-none !bg-transparent dark:text-[#F8FAFC] focus:ring-0 text-sm" 
+        />
       </div>
-      <div class="filters-group">
-        <select v-model="selectedDept" class="filter-select">
-          <option value="all">All Departments</option>
-          <option v-for="d in departments" :key="d._id" :value="d._id">{{ d.name }}</option>
-        </select>
-        <select v-model="selectedCredits" class="filter-select">
-          <option value="all">Credits</option>
-          <option v-for="n in 10" :key="n" :value="String(n)">{{ n }} ECTS</option>
-        </select>
-        <button class="filter-btn-more"><i class="pi pi-filter"></i> More Filters</button>
-      </div>
+      <div class="h-10 w-[1px] bg-[#E5E7EB] dark:bg-[#334155] hidden md:block"></div>
+      <Select 
+        v-model="selectedDept" 
+        :options="[{name: 'All Departments', _id: 'all'}, ...departments]"
+        optionLabel="name"
+        optionValue="_id"
+        placeholder="All Departments"
+        class="w-full md:w-56 !border-none !bg-transparent dark:text-[#F8FAFC] focus:ring-0 text-sm"
+      />
+      <div class="h-10 w-[1px] bg-[#E5E7EB] dark:bg-[#334155] hidden md:block"></div>
+      <Select 
+        v-model="selectedCredits" 
+        :options="[{label: 'Credits', value: 'all'}, ...[1,2,3,4,5,6,8,10].map(n => ({label: `${n} ECTS`, value: String(n)}))]"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Credits"
+        class="w-full md:w-32 !border-none !bg-transparent dark:text-[#F8FAFC] focus:ring-0 text-sm"
+      />
     </div>
 
     <!-- Courses Table -->
-    <div class="table-container glass-card">
-      <DataTable 
-        :value="filteredCourses" 
-        :loading="loading" 
-        stripedRows 
-        removableSort
-        responsiveLayout="scroll"
-        class="p-datatable-sm"
-      >
-        <Column header="Course Details" sortable sortField="name">
-          <template #body="{ data }">
-            <div class="course-cell">
-              <div class="initials-square">{{ getInitials(data.name) }}</div>
-              <div class="course-text">
-                <span class="course-name">{{ data.name }}</span>
-                <span class="course-code">{{ data.code }} - {{ data.description?.substring(0, 20) }}...</span>
-              </div>
+    <DataTable 
+      :value="filteredCourses" 
+      :loading="loading" 
+      class="p-datatable-modern mb-8"
+      responsiveLayout="scroll"
+      removableSort
+      stripedRows
+    >
+      <Column header="COURSE DETAILS" sortable sortField="title">
+        <template #body="{ data, index }">
+          <div class="flex items-center gap-4 py-1">
+            <div 
+              class="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm"
+              :style="{ backgroundColor: getAvatarColor(index) }"
+            >
+              {{ getInitials(data.title) }}
             </div>
-          </template>
-        </Column>
-
-        <Column header="Department" sortable sortField="department.name">
-          <template #body="{ data }">
-            <span class="role-badge etudiant">{{ data.department?.name || 'Unassigned' }}</span>
-          </template>
-        </Column>
-
-        <Column header="Assigned Teacher" sortable sortField="teacher.name">
-          <template #body="{ data }">
-            <div class="teacher-cell" v-if="data.teacher">
-              <div class="avatar-initials tiny">{{ getInitials(data.teacher.name || '') }}</div>
-              <span class="teacher-name">{{ data.teacher.name }}</span>
+            <div class="flex flex-col">
+              <span class="font-bold text-[#111827] dark:text-[#F8FAFC] text-[15px]">{{ data.title }}</span>
+              <span class="text-[#6B7280] dark:text-[#94A3B8] text-xs font-medium">{{ data.code }}</span>
             </div>
-            <span v-else class="unassigned-text">Unassigned</span>
-          </template>
-        </Column>
-
-        <Column field="credits" header="Credits" sortable>
-          <template #body="{ data }">
-            <span class="credits-text">{{ data.credits }} ECTS</span>
-          </template>
-        </Column>
-
-        <Column header="Status" sortable sortField="teacher">
-          <template #body="{ data }">
-            <span class="status-badge" :class="data.teacher ? 'active' : 'inactive'">
-              {{ data.teacher ? 'Active' : 'Draft' }}
-            </span>
-          </template>
-        </Column>
-
-        <Column header="Actions" headerStyle="text-align: right" bodyStyle="text-align: right">
-          <template #body="{ data }">
-            <div v-if="canManage" class="actions-group">
-              <button @click="editCourse(data)" class="action-btn edit" title="Edit"><i class="pi pi-pencil"></i></button>
-              <button @click="deleteCourse(data)" class="action-btn delete" title="Delete"><i class="pi pi-trash"></i></button>
-            </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="p-4 text-center text-muted">
-            <i class="pi pi-book block mb-2" style="font-size: 2rem"></i>
-            No courses found
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
 
-    <!-- Bottom Stats Grid -->
-    <div class="stats-grid">
-      <div v-for="stat in stats" :key="stat.label" class="premium-stat-card glass-card">
-        <div class="stat-top">
-          <span class="stat-label">{{ stat.label }}</span>
-          <i :class="[stat.icon, 'stat-icon']"></i>
+      <Column header="DEPARTMENT" sortable sortField="department.name">
+        <template #body="{ data }">
+          <Tag :value="data.department?.name || 'Unassigned'" class="!bg-[#F1F5F9] !text-[#475569] !rounded-full !px-3 !font-semibold !text-[10px]" />
+        </template>
+      </Column>
+
+      <Column header="ASSIGNED TEACHER" sortable sortField="teacher.name">
+        <template #body="{ data }">
+          <div v-if="data.teacher" class="flex items-center gap-2">
+            <Avatar :label="getInitials(data.teacher.name)" shape="circle" class="!bg-blue-100 !text-blue-600 !w-6 !h-6 !text-[10px]" />
+            <span class="text-sm font-medium text-[#374151] dark:text-[#CBD5E1]">{{ data.teacher.name }}</span>
+          </div>
+          <span v-else class="text-sm italic text-[#94A3B8]">Unassigned</span>
+        </template>
+      </Column>
+
+      <Column field="credits" header="CREDITS" sortable>
+        <template #body="{ data }">
+          <span class="text-sm font-bold text-[#111827] dark:text-[#F8FAFC]">{{ data.credits || 0 }} ECTS</span>
+        </template>
+      </Column>
+
+      <Column header="STUDENTS" sortable :sortField="data => data.students?.length || 0">
+        <template #body="{ data }">
+          <div class="flex items-center gap-1">
+            <i class="pi pi-users text-[#6B7280] dark:text-[#94A3B8] text-xs"></i>
+            <span class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1]">{{ data.students?.length || 0 }}</span>
+          </div>
+        </template>
+      </Column>
+
+      <Column header="STATUS" sortable sortField="teacher">
+        <template #body="{ data }">
+          <div class="flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full" :class="data.teacher ? 'bg-[#22C55E]' : 'bg-[#EF4444]'"></div>
+            <span class="text-[11px] font-bold uppercase tracking-wider" :class="data.teacher ? 'text-[#22C55E]' : 'text-[#EF4444]'">
+              {{ data.teacher ? 'Active' : 'Draft' }}
+            </span>
+          </div>
+        </template>
+      </Column>
+
+      <Column header="ACTIONS" headerStyle="text-align: right" bodyStyle="text-align: right">
+        <template #body="{ data }">
+          <div v-if="canManage" class="flex items-center justify-end gap-4 mr-2">
+            <button @click="editCourse(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#3B82F6] transition-colors" title="Edit">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button @click="deleteCourse(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#EF4444] transition-colors" title="Delete">
+              <i class="pi pi-trash"></i>
+            </button>
+          </div>
+        </template>
+      </Column>
+    </DataTable>
+
+    <!-- Bottom Stat Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div v-for="stat in stats" :key="stat.label" class="p-6 bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-[#334155] rounded-xl shadow-sm relative overflow-hidden group">
+        <div class="flex justify-between items-start mb-4">
+          <span class="text-sm font-bold text-[#6B7280] dark:text-[#94A3B8]">{{ stat.label }}</span>
+          <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <i :class="[stat.icon, 'text-blue-500 text-lg']"></i>
+          </div>
         </div>
-        <div class="stat-body">
-          <span class="stat-value">{{ stat.value }}</span>
-          <div class="stat-footer" :class="stat.trendType">
+        <div class="flex flex-col">
+          <span class="text-3xl font-black text-[#111827] dark:text-[#F8FAFC] mb-2">{{ stat.value }}</span>
+          <div class="flex items-center gap-1.5 text-[11px] font-bold" :class="{
+            'text-[#22C55E]': stat.trendType === 'up',
+            'text-[#F59E0B]': stat.trendType === 'warning',
+            'text-[#6B7280]': stat.trendType === 'neutral'
+          }">
             <i v-if="stat.trendType === 'up'" class="pi pi-arrow-up-right"></i>
             <i v-if="stat.trendType === 'warning'" class="pi pi-exclamation-circle"></i>
             <span>{{ stat.trend }}</span>
           </div>
         </div>
+        <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-all"></div>
       </div>
     </div>
 
-    <!-- Modal Form -->
-    <transition name="fade">
-      <div v-if="showCreate" class="modal-overlay" @click.self="resetForm">
-        <div class="modal-card glass-card slide-up">
-          <div class="modal-header">
-            <h3>{{ editingCourse ? 'Edit Course' : 'Create New Course' }}</h3>
-            <button @click="resetForm" class="close-btn"><i class="pi pi-times"></i></button>
-          </div>
-          <div class="modal-body">
-            <div class="form-grid">
-              <FormField v-model="form.name" label="Course Name" placeholder="e.g. Advanced JavaScript" required />
-              <FormField v-model="form.code" label="Course Code" placeholder="e.g. CS101" required />
-              <div class="form-field full">
-                <label class="field-label">Description</label>
-                <textarea v-model="form.description" class="field-textarea" placeholder="Enter course description..."></textarea>
+    <!-- Create/Edit Dialog -->
+    <Dialog 
+      v-model:visible="showCreate" 
+      :header="editingCourse ? 'Update Course' : 'Create New Course'" 
+      modal 
+      class="p-fluid max-w-2xl w-full"
+    >
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Course Name</label>
+          <InputText v-model="form.title" placeholder="Advanced Node.js" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Course Code</label>
+          <InputText v-model="form.code" placeholder="CS405" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2 md:col-span-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Description</label>
+          <Textarea v-model="form.description" rows="3" placeholder="Enter course curriculum details..." class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Department</label>
+          <Select 
+            v-model="form.department" 
+            :options="departments"
+            optionLabel="name"
+            optionValue="_id"
+            placeholder="Select Dept"
+            class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg"
+          />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Teacher</label>
+          <Select 
+            v-model="form.teacher" 
+            :options="teachers"
+            optionLabel="name"
+            optionValue="_id"
+            placeholder="Select Teacher"
+            class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg"
+          />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">ECTS Credits</label>
+          <InputNumber v-model="form.credits" :min="0" :max="30" showButtons class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2 md:col-span-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Enrolled Students</label>
+          <MultiSelect 
+            v-model="form.students" 
+            :options="studentsList"
+            optionLabel="name"
+            optionValue="_id"
+            placeholder="Select Students"
+            display="chip"
+            filter
+            class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg"
+          >
+            <template #option="slotProps">
+              <div class="flex items-center gap-2">
+                <Avatar :label="getInitials(slotProps.option.name)" shape="circle" class="w-6 h-6 text-[10px]" />
+                <span>{{ slotProps.option.name }}</span>
               </div>
-              <div class="form-field">
-                <label class="field-label">Department</label>
-                <select v-model="form.department" class="field-select">
-                  <option value="">Select Department</option>
-                  <option v-for="d in departments" :key="d._id" :value="d._id">{{ d.name }}</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label class="field-label">Teacher</label>
-                <select v-model="form.teacher" class="field-select">
-                  <option value="">Select Teacher</option>
-                  <option v-for="t in teachers" :key="t._id" :value="t._id">{{ t.name }}</option>
-                </select>
-              </div>
-              <FormField v-model.number="form.credits" label="ECTS Credits" type="number" min="1" max="60" required />
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button @click="resetForm" class="btn-premium secondary-btn">Cancel</button>
-            <button @click="saveCourse" class="btn-premium btn-primary">
-              {{ editingCourse ? 'Save Changes' : 'Create Course' }}
-            </button>
-          </div>
+            </template>
+          </MultiSelect>
         </div>
       </div>
-    </transition>
+      <template #footer>
+        <div class="flex gap-3 justify-end mt-4">
+          <Button label="Cancel" @click="resetForm" class="p-button-text p-button-secondary font-bold" />
+          <Button label="Save Course" @click="saveCourse" class="p-button-primary rounded-lg px-8 font-bold shadow-md" />
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
-<style scoped>
-.courses-view {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding-bottom: 3rem;
+<style>
+/* PrimeVue Modern DataTable Overrides */
+.p-datatable-modern .p-datatable-thead > tr > th {
+  background: transparent !important;
+  color: #6B7280 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  border-bottom: 2px solid #F3F4F6 !important;
+  padding: 1rem 0.5rem !important;
 }
 
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+.dark .p-datatable-modern .p-datatable-thead > tr > th {
+  color: #94A3B8 !important;
+  border-bottom: 2px solid #334155 !important;
 }
 
-.page-title {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin: 0;
+.p-datatable-modern .p-datatable-tbody > tr {
+  background: transparent !important;
+  border-bottom: 1px solid #F9FAFB !important;
 }
 
-.page-subtitle {
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  margin-top: 0.25rem;
+.dark .p-datatable-modern .p-datatable-tbody > tr {
+  border-bottom: 1px solid #334155 !important;
 }
 
-.filters-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1.25rem;
-  gap: 1.5rem;
+.p-datatable-modern .p-datatable-tbody > tr:hover {
+  background: #F9FAFB !important;
 }
 
-.search-input {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex: 1;
-  max-width: 450px;
+.dark .p-datatable-modern .p-datatable-tbody > tr:hover {
+  background: #334155 !important;
 }
 
-.search-input i {
-  color: var(--text-muted);
-}
-
-.search-input input {
-  border: none;
-  background: transparent;
-  width: 100%;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  outline: none;
-}
-
-.filters-group {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.filter-select {
-  background: var(--surface-bg);
-  border: 1px solid var(--surface-border);
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  outline: none;
-  cursor: pointer;
-}
-
-.filter-btn-more {
-  background: var(--surface-bg);
-  border: 1px solid var(--surface-border);
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-}
-
-/* Table Cells */
-.course-cell {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.course-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.course-name {
-  font-weight: 700;
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-}
-
-.course-code {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.teacher-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-.avatar-initials.tiny {
-  width: 28px;
-  height: 28px;
-  font-size: 0.65rem;
-}
-
-.teacher-name {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.unassigned-text {
-  font-style: italic;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.credits-text {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.actions-group {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-/* Bottom Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
-  margin-top: 1rem;
-}
-
-.premium-stat-card {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.stat-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.stat-icon {
-  color: var(--color-primary);
-  font-size: 1.25rem;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.stat-footer {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-top: 0.25rem;
-}
-
-.stat-footer.up { color: var(--color-success); }
-.stat-footer.warning { color: var(--color-warning); }
-.stat-footer.neutral { color: var(--text-muted); }
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.3);
-  backdrop-filter: blur(4px);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-card {
-  width: 100%;
-  max-width: 650px;
-}
-
-.modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--surface-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.close-btn { background: transparent; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted); }
-
-.modal-body { padding: 1.5rem; }
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
-}
-
-.form-field.full { grid-column: span 2; }
-
-.field-textarea {
-  width: 100%;
-  height: 80px;
-  padding: 0.625rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--surface-border);
-  background: var(--surface-bg);
-  color: var(--text-primary);
-  outline: none;
-  resize: none;
-}
-
-.modal-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--surface-border);
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.secondary-btn { background: var(--surface-hover); color: var(--text-secondary); border: 1px solid var(--surface-border); }
-
-@media (max-width: 1024px) {
-  .stats-grid { grid-template-columns: 1fr; }
-}
-@media (max-width: 768px) {
-  .filters-bar { flex-direction: column; align-items: stretch; }
-  .form-grid { grid-template-columns: 1fr; }
-  .form-field.full { grid-column: span 1; }
+.p-datatable-modern .p-datatable-tbody > tr > td {
+  border: none !important;
+  padding: 1.25rem 0.5rem !important;
 }
 </style>

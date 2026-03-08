@@ -5,11 +5,14 @@ import departmentService from '../services/department.service'
 import courseService from '../services/course.service'
 import { useUserStore } from '../store/user.store'
 import { showSuccess, showError } from '../utils/toast'
-import PageHeader from '../components/common/PageHeader.vue'
-import StatCard from '../components/common/StatCard.vue'
-import FormField from '../components/common/FormField.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
+import Dialog from 'primevue/dialog'
+import Tag from 'primevue/tag'
+import Avatar from 'primevue/avatar'
 
 const userStore = useUserStore()
 const users = ref([])
@@ -33,8 +36,8 @@ const isTeacherView = computed(() => ['formateur', 'formateur_principal'].includ
 
 const stats = computed(() => {
   return [
-    { label: 'Total Users', value: users.value.length, icon: 'pi pi-users', color: '#3B82F6' },
-    { label: 'Active Now', value: users.value.filter(u => u.isActive).length, icon: 'pi pi-bolt', color: '#10B981' }
+    { label: 'Total Users', value: users.value.length },
+    { label: 'Active Now', value: users.value.filter(u => u.isActive).length }
   ]
 })
 
@@ -48,12 +51,19 @@ const filteredUsers = computed(() => {
   })
 })
 
+const avatarColors = [
+  '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899',
+  '#F59E0B', '#14B8A6', '#10B981', '#F43F5E'
+]
+const getAvatarColor = (name) => {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return avatarColors[Math.abs(hash) % avatarColors.length]
+}
+
 const getInitials = (name) => {
   if (!name) return '?'
-  const parts = name.split(' ')
-  return parts.length >= 2 
-    ? (parts[0][0] + parts[1][0]).toUpperCase()
-    : name.substring(0, 2).toUpperCase()
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
 const idOf = (v) => (v && (v._id || v.id || v))
@@ -184,442 +194,254 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="users-view">
-    <!-- Header & Stats Row -->
-    <div class="top-section">
-      <div class="header-wrap">
-        <h1 class="page-title">Users Management</h1>
-        <p class="page-subtitle">Manage platform access, roles, and departmental assignments.</p>
+  <div class="px-8 py-6 min-h-screen bg-white dark:bg-[#0F172A] transition-colors duration-300">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
+      <div>
+        <h1 class="text-3xl font-extrabold text-[#111827] dark:text-[#F8FAFC] tracking-tight mb-1">Users Management</h1>
+        <p class="text-[#6B7280] dark:text-[#94A3B8] text-sm">Manage platform access, roles, and departmental assignments.</p>
       </div>
-      <div class="stats-row">
-        <div v-for="stat in stats" :key="stat.label" class="mini-stat-card glass-card">
-          <div class="stat-info">
-            <span class="stat-label">{{ stat.label.toUpperCase() }}</span>
-            <span class="stat-value">{{ stat.value.toLocaleString() }}</span>
-          </div>
+      <div class="flex items-center gap-6">
+        <div v-for="stat in stats" :key="stat.label" class="flex flex-col items-end">
+          <span class="text-[10px] uppercase font-bold text-[#6B7280] dark:text-[#94A3B8] tracking-widest">{{ stat.label }}</span>
+          <span class="text-2xl font-black text-[#111827] dark:text-[#F8FAFC]">{{ stat.value }}</span>
         </div>
-        <button v-if="canManageUsers" @click="showCreate = true" class="btn-premium btn-primary">
-          <i class="pi pi-plus"></i>
-          Create User
-        </button>
+        <Button 
+          v-if="canManageUsers" 
+          @click="showCreate = true" 
+          label="Create User" 
+          icon="pi pi-plus" 
+          class="p-button-primary rounded-lg px-6 font-bold shadow-md hover:shadow-lg transform transition-all active:scale-95"
+        />
       </div>
     </div>
 
-    <!-- Search & Filters -->
-    <div class="filters-card glass-card">
-      <div class="search-box">
-        <i class="pi pi-search"></i>
-        <input v-model="searchQuery" type="text" placeholder="Search by name, email or role..." />
+    <!-- Search & Filters Container -->
+    <div class="p-4 mb-6 bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-[#1E293B] rounded-xl flex flex-col md:flex-row gap-4 shadow-sm">
+      <div class="relative flex-1">
+        <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280] dark:text-[#94A3B8]"></i>
+        <InputText 
+          v-model="searchQuery" 
+          placeholder="Search for a name or email..." 
+          class="w-full pl-11 !border-none !bg-transparent dark:text-[#F8FAFC] focus:ring-0" 
+        />
       </div>
-      <div class="filter-actions">
-        <select v-model="selectedRole" class="role-select-filter">
-          <option value="all">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="rh">RH</option>
-          <option value="formateur_principal">Formateur Principal</option>
-          <option value="formateur">Formateur</option>
-          <option value="etudiant">Etudiant</option>
-        </select>
-      </div>
+      <div class="h-10 w-[1px] bg-[#E5E7EB] dark:bg-[#334155] hidden md:block"></div>
+      <Select 
+        v-model="selectedRole" 
+        :options="[
+          {label: 'All Roles', value: 'all'},
+          {label: 'Admin', value: 'admin'},
+          {label: 'RH', value: 'rh'},
+          {label: 'Principal Teacher', value: 'formateur_principal'},
+          {label: 'Teacher', value: 'formateur'},
+          {label: 'Student', value: 'etudiant'}
+        ]"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Filter by Role"
+        class="w-full md:w-56 !border-none !bg-transparent dark:text-[#F8FAFC] focus:ring-0"
+      />
     </div>
 
-    <!-- Users Table -->
-    <div class="table-wrap glass-card">
-      <DataTable 
-        :value="filteredUsers" 
-        :loading="loading" 
-        stripedRows 
-        removableSort
-        responsiveLayout="scroll"
-        class="p-datatable-sm"
-      >
-        <Column header="User" sortable sortField="name">
-          <template #body="{ data }">
-            <div class="user-info-cell">
-              <div class="avatar-initials">{{ getInitials(data.name) }}</div>
-              <div class="user-text">
-                <span class="user-name">{{ data.name }}</span>
-                <span class="user-email">{{ data.email }}</span>
-              </div>
+    <!-- DataTable -->
+    <DataTable 
+      :value="filteredUsers" 
+      :loading="loading" 
+      class="p-datatable-modern"
+      responsiveLayout="scroll"
+      removableSort
+      stripedRows
+    >
+      <Column header="USER" sortable sortField="name">
+        <template #body="{ data }">
+          <div class="flex items-center gap-4 py-1">
+            <div 
+              class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
+              :style="{ backgroundColor: getAvatarColor(data.name) }"
+            >
+              {{ getInitials(data.name) }}
             </div>
-          </template>
-        </Column>
-
-        <Column field="role" header="Role" sortable>
-          <template #body="{ data }">
-            <span class="role-badge" :class="data.role">{{ data.role.replace('_', ' ') }}</span>
-          </template>
-        </Column>
-
-        <Column header="Department" sortable sortField="department.name">
-          <template #body="{ data }">
-            <span class="dept-text">{{ data.department?.name || '—' }}</span>
-          </template>
-        </Column>
-
-        <Column field="isActive" header="Status" sortable>
-          <template #body="{ data }">
-            <span class="status-badge" :class="data.isActive ? 'active' : 'inactive'">
-              {{ data.isActive ? 'Active' : 'Inactive' }}
-            </span>
-          </template>
-        </Column>
-
-        <Column header="Actions" headerStyle="text-align: right" bodyStyle="text-align: right">
-          <template #body="{ data }">
-            <div class="actions-group">
-              <button v-if="canManageUsers || isTeacherView" @click="editUser(data)" class="action-btn edit" title="Edit">
-                <i class="pi pi-pencil"></i>
-              </button>
-              <button v-if="canManageUsers || isTeacherView" @click="toggleActivate(data)" class="action-btn" title="Toggle Active">
-                <i :class="data.isActive ? 'pi pi-ban' : 'pi pi-check-circle'"></i>
-              </button>
-              <button v-if="isTeacherView" @click="openAssignDialog(data)" class="action-btn" title="Assign Course">
-                <i class="pi pi-link"></i>
-              </button>
-              <button v-if="canManageUsers" @click="deleteUser(data)" class="action-btn delete" title="Delete">
-                <i class="pi pi-trash"></i>
-              </button>
+            <div class="flex flex-col">
+              <span class="font-bold text-[#111827] dark:text-[#F8FAFC] text-[15px]">{{ data.name }}</span>
+              <span class="text-[#6B7280] dark:text-[#94A3B8] text-xs font-medium">{{ data.email }}</span>
             </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="p-4 text-center text-muted">
-            <i class="pi pi-users block mb-2" style="font-size: 2rem"></i>
-            No users found
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
 
-    <!-- Create/Edit Dialog -->
-    <transition name="fade">
-      <div v-if="showCreate" class="modal-overlay" @click.self="resetForm">
-        <div class="modal-card glass-card slide-up">
-          <div class="modal-header">
-            <h3>{{ editingUser ? 'Edit User' : 'Create New User' }}</h3>
-            <button @click="resetForm" class="close-btn"><i class="pi pi-times"></i></button>
+      <Column field="role" header="ROLE" sortable>
+        <template #body="{ data }">
+          <span class="text-sm font-medium text-[#374151] dark:text-[#CBD5E1] capitalize">
+            {{ data.role.replace('_', ' ') }}
+          </span>
+        </template>
+      </Column>
+
+      <Column header="DEPARTMENT" sortable sortField="department.name">
+        <template #body="{ data }">
+          <span class="text-sm text-[#6B7280] dark:text-[#94A3B8]">
+            {{ data.department?.name || '—' }}
+          </span>
+        </template>
+      </Column>
+
+      <Column header="STATUS" sortable field="isActive">
+        <template #body="{ data }">
+          <div class="flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full" :class="data.isActive ? 'bg-[#22C55E]' : 'bg-[#EF4444]'"></div>
+            <span class="text-sm font-medium" :class="data.isActive ? 'text-[#22C55E]' : 'text-[#EF4444]'">
+              {{ data.isActive ? 'Active' : 'Deactivated' }}
+            </span>
           </div>
-          <div class="modal-body">
-            <div class="form-grid">
-              <FormField v-model="form.name" label="Full Name" placeholder="e.g. John Doe" required />
-              <FormField v-model="form.email" label="Email Address" type="email" placeholder="john@example.com" required />
-              <FormField v-model="form.password" label="Password" type="password" :placeholder="editingUser ? '(leave blank to keep current)' : 'Enter password'" :required="!editingUser" />
-              <div class="form-field">
-                <label class="field-label">Role</label>
-                <select v-model="form.role" class="field-select">
-                  <option value="etudiant">Student</option>
-                  <option value="formateur">Teacher</option>
-                  <option value="formateur_principal">Principal Teacher</option>
-                  <option value="rh">RH</option>
-                  <option value="admin">Administrator</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label class="field-label">Department</label>
-                <select v-model="form.department" class="field-select">
-                  <option value="">No Department</option>
-                  <option v-for="d in departments" :key="d._id" :value="d._id">{{ d.name }}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button @click="resetForm" class="btn-premium secondary-btn">Cancel</button>
-            <button @click="saveUser" class="btn-premium btn-primary">
-              {{ editingUser ? 'Save Changes' : 'Create User' }}
+        </template>
+      </Column>
+
+      <Column header="ACTIONS" headerStyle="text-align: center" bodyStyle="text-align: center">
+        <template #body="{ data }">
+          <div class="flex items-center justify-center gap-4">
+            <button v-if="canManageUsers || isTeacherView" @click="editUser(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#3B82F6] transition-colors" title="Edit">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button v-if="canManageUsers || isTeacherView" @click="toggleActivate(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#F59E0B] transition-colors" title="Deactivate">
+              <i class="pi pi-ban"></i>
+            </button>
+            <button v-if="isTeacherView" @click="openAssignDialog(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#6366F1] transition-colors" title="Assign Course">
+              <i class="pi pi-link"></i>
+            </button>
+            <button v-if="canManageUsers" @click="deleteUser(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#EF4444] transition-colors" title="Delete">
+              <i class="pi pi-trash"></i>
             </button>
           </div>
-        </div>
-      </div>
-    </transition>
+        </template>
+      </Column>
 
-    <!-- Confirm Dialog -->
-    <transition name="fade">
-      <div v-if="confirmDialog.show" class="modal-overlay" @click.self="confirmDialog.show = false">
-        <div class="modal-card glass-card slide-up tiny">
-          <div class="confirm-body">
-            <div class="confirm-icon"><i class="pi pi-exclamation-triangle"></i></div>
-            <p>{{ confirmDialog.message }}</p>
-          </div>
-          <div class="modal-footer centered">
-            <button @click="confirmDialog.show = false" class="btn-premium secondary-btn">Cancel</button>
-            <button @click="confirmDialog.action(); confirmDialog.show = false" class="btn-premium btn-primary danger">Confirm</button>
-          </div>
+      <template #footer>
+        <div class="py-2 text-xs font-semibold text-[#6B7280] dark:text-[#94A3B8] uppercase tracking-wider">
+          Total Users: {{ filteredUsers.length }}
         </div>
-      </div>
-    </transition>
+      </template>
 
-    <!-- Assign Course Dialog (Teacher only) -->
-    <transition name="fade">
-      <div v-if="assignDialog.show" class="modal-overlay" @click.self="assignDialog.show = false">
-        <div class="modal-card glass-card slide-up tiny">
-          <div class="modal-header">
-            <h3>Affecter à un cours</h3>
-            <button @click="assignDialog.show = false" class="close-btn"><i class="pi pi-times"></i></button>
+      <template #empty>
+        <div class="py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#334155] rounded-xl flex flex-col items-center">
+          <i class="pi pi-users text-4xl text-[#E5E7EB] dark:text-[#334155] mb-2"></i>
+          <p class="text-[#6B7280] dark:text-[#94A3B8] font-medium">No platform users found.</p>
+        </div>
+      </template>
+    </DataTable>
+
+    <!-- Create/Edit User Dialog -->
+    <Dialog 
+      v-model:visible="showCreate" 
+      :header="editingUser ? 'Edit User Profile' : 'Create New User'" 
+      modal 
+      class="p-fluid max-w-lg w-full"
+      :breakpoints="{'960px': '75vw', '641px': '90vw'}"
+    >
+      <div class="grid grid-cols-1 gap-6 pt-2">
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Full Name</label>
+          <InputText v-model="form.name" placeholder="John Doe" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Email Address</label>
+          <InputText v-model="form.email" type="email" placeholder="john.doe@university.com" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Password</label>
+          <InputText v-model="form.password" type="password" :placeholder="editingUser ? '(Leave empty to keep current)' : '••••••••'" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Role</label>
+            <Select 
+              v-model="form.role" 
+              :options="[
+                {label: 'Student', value: 'etudiant'},
+                {label: 'Teacher', value: 'formateur'},
+                {label: 'Principal Teacher', value: 'formateur_principal'},
+                {label: 'RH', value: 'rh'},
+                {label: 'Admin', value: 'admin'}
+              ]"
+              optionLabel="label"
+              optionValue="value"
+              class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg"
+            />
           </div>
-          <div class="modal-body">
-            <p class="text-sm mb-2 text-gray-500">Choisir un cours pour <strong>{{ assignDialog.student?.name }}</strong>:</p>
-            <select v-model="assignDialog.selected" class="field-select w-full">
-              <option v-for="c in assignDialog.choices" :key="c._id" :value="String(idOf(c))">{{ c.name }}</option>
-            </select>
-          </div>
-          <div class="modal-footer">
-            <button @click="assignDialog.show = false" class="btn-premium secondary-btn">Annuler</button>
-            <button @click="confirmAssign" class="btn-premium btn-primary">Confirmer</button>
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Department</label>
+            <Select 
+              v-model="form.department" 
+              :options="departments"
+              optionLabel="name"
+              optionValue="_id"
+              placeholder="Select Dept"
+              class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg"
+            />
           </div>
         </div>
       </div>
-    </transition>
+      <template #footer>
+        <div class="flex gap-3 justify-end mt-2">
+          <Button label="Cancel" @click="resetForm" class="p-button-text p-button-secondary font-bold" />
+          <Button @click="saveUser" :label="editingUser ? 'Save Changes' : 'Create User'" class="p-button-primary rounded-lg px-8 font-bold shadow-md" />
+        </div>
+      </template>
+    </Dialog>
+
+    <!-- Generic Confirm Dialog Overlay -->
+    <Dialog v-model:visible="confirmDialog.show" modal header="Confirmation Required" class="max-w-md w-full">
+      <div class="flex flex-col items-center text-center p-4">
+        <i class="pi pi-exclamation-triangle text-4xl text-[#F59E0B] mb-4"></i>
+        <p class="text-[#374151] dark:text-[#CBD5E1] font-medium">{{ confirmDialog.message }}</p>
+      </div>
+      <template #footer>
+        <div class="flex justify-center gap-3">
+          <Button label="Cancel" @click="confirmDialog.show = false" class="p-button-text font-bold" />
+          <Button label="Confirm Action" @click="confirmDialog.action(); confirmDialog.show = false" class="p-button-danger rounded-lg px-8 font-bold shadow-md" />
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
-<style scoped>
-.users-view {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding-bottom: 2rem;
+<style>
+/* PrimeVue Modern DataTable Overrides */
+.p-datatable-modern .p-datatable-thead > tr > th {
+  background: transparent !important;
+  color: #6B7280 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  border-bottom: 2px solid #F3F4F6 !important;
+  padding: 1rem 0.5rem !important;
 }
 
-.top-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1.5rem;
+.dark .p-datatable-modern .p-datatable-thead > tr > th {
+  color: #94A3B8 !important;
+  border-bottom: 2px solid #334155 !important;
 }
 
-.page-title {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin: 0;
+.p-datatable-modern .p-datatable-tbody > tr {
+  background: transparent !important;
+  border-bottom: 1px solid #F9FAFB !important;
 }
 
-.page-subtitle {
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  margin-top: 0.25rem;
+.dark .p-datatable-modern .p-datatable-tbody > tr {
+  border-bottom: 1px solid #334155 !important;
 }
 
-.stats-row {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
+.p-datatable-modern .p-datatable-tbody > tr:hover {
+  background: #F9FAFB !important;
 }
 
-.mini-stat-card {
-  padding: 0.75rem 1.5rem;
-  min-width: 140px;
+.dark .p-datatable-modern .p-datatable-tbody > tr:hover {
+  background: #334155 !important;
 }
 
-.stat-label {
-  display: block;
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.05em;
-}
-
-.stat-value {
-  display: block;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--text-primary);
-}
-
-/* Filters Card */
-.filters-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1.25rem;
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex: 1;
-  max-width: 400px;
-}
-
-.search-box i {
-  color: var(--text-muted);
-  font-size: 1rem;
-}
-
-.search-box input {
-  border: none;
-  background: transparent;
-  width: 100%;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  outline: none;
-}
-
-.role-select-filter {
-  background: var(--surface-hover);
-  border: 1px solid var(--surface-border);
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  cursor: pointer;
-  outline: none;
-}
-
-/* Table Specifics */
-.user-info-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-}
-
-.user-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.user-name {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-}
-
-.user-email {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-}
-
-.dept-text {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
-.actions-group {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-/* Modals */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-}
-
-.modal-card {
-  width: 100%;
-  max-width: 600px;
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-card.tiny {
-  max-width: 400px;
-}
-
-.modal-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--surface-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-weight: 700;
-}
-
-.close-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 1.25rem;
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.modal-footer {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid var(--surface-border);
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
-.modal-footer.centered {
-  justify-content: center;
-}
-
-.secondary-btn {
-  background: var(--surface-hover);
-  color: var(--text-secondary);
-  border: 1px solid var(--surface-border);
-}
-
-.btn-primary.danger {
-  background: var(--color-danger);
-}
-
-.confirm-body {
-  padding: 2rem 1.5rem;
-  text-align: center;
-}
-
-.confirm-icon {
-  font-size: 2.5rem;
-  color: var(--color-warning);
-  margin-bottom: 1rem;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.field-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.field-select {
-  padding: 0.625rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--surface-border);
-  background: var(--surface-bg);
-  color: var(--text-primary);
-  outline: none;
-}
-
-@media (max-width: 768px) {
-  .top-section {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
+.p-datatable-modern .p-datatable-tbody > tr > td {
+  border: none !important;
+  padding: 1.25rem 0.5rem !important;
 }
 </style>

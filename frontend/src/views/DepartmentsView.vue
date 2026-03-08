@@ -3,9 +3,12 @@ import { ref, onMounted, computed } from 'vue'
 import departmentService from '../services/department.service'
 import { useUserStore } from '../store/user.store'
 import { showSuccess, showError } from '../utils/toast'
-import FormField from '../components/common/FormField.vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import Dialog from 'primevue/dialog'
+import Textarea from 'primevue/textarea'
 
 const userStore = useUserStore()
 const departments = ref([])
@@ -14,14 +17,13 @@ const showCreate = ref(false)
 const editingDept = ref(null)
 
 const searchQuery = ref('')
-
 const form = ref({ name: '', description: '' })
 
 const canManage = computed(() => ['admin', 'rh'].includes(userStore.user?.role))
 
 const stats = computed(() => [
-  { label: 'Total Departments', value: departments.value.length, icon: 'pi pi-building' },
-  { label: 'Active Course Links', value: departments.value.reduce((acc, d) => acc + (d.courses?.length || 0), 0), icon: 'pi pi-link' }
+  { label: 'Total Departments', value: departments.value.length },
+  { label: 'Courses Linked', value: departments.value.reduce((acc, d) => acc + (d.courses?.length || 0), 0) }
 ])
 
 const filteredDepts = computed(() => {
@@ -88,150 +90,162 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="departments-view">
-    <!-- Header section -->
-    <div class="header-section">
-      <div class="header-info">
-        <h1 class="page-title">Departments</h1>
-        <p class="page-subtitle">Organize and manage school departments and their assigned courses.</p>
+  <div class="px-8 py-6 min-h-screen bg-white dark:bg-[#0F172A] transition-colors duration-300">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
+      <div>
+        <h1 class="text-3xl font-extrabold text-[#111827] dark:text-[#F8FAFC] tracking-tight mb-1">Department Management</h1>
+        <p class="text-[#6B7280] dark:text-[#94A3B8] text-sm">Organize and manage your academic structure efficiently.</p>
       </div>
-      <div class="header-actions">
-        <div class="mini-stats mr-4 hidden md:flex">
-          <div v-for="s in stats" :key="s.label" class="mini-stat">
-            <span class="label">{{ s.label }}</span>
-            <span class="value">{{ s.value }}</span>
-          </div>
+      <div class="flex items-center gap-6">
+        <div v-for="stat in stats" :key="stat.label" class="flex flex-col items-end">
+          <span class="text-[10px] uppercase font-bold text-[#6B7280] dark:text-[#94A3B8] tracking-widest">{{ stat.label }}</span>
+          <span class="text-2xl font-black text-[#111827] dark:text-[#F8FAFC]">{{ stat.value }}</span>
         </div>
-        <button v-if="canManage" @click="showCreate = true" class="btn-premium btn-primary">
-          <i class="pi pi-plus"></i>
-          Add Department
-        </button>
+        <Button 
+          v-if="canManage" 
+          @click="showCreate = true" 
+          label="Create Dept" 
+          icon="pi pi-plus" 
+          class="p-button-primary rounded-lg px-6 font-bold shadow-md hover:shadow-lg transform transition-all active:scale-95"
+        />
       </div>
     </div>
 
-    <!-- Filters -->
-    <div class="filters-bar glass-card">
-      <div class="search-input">
-        <i class="pi pi-search"></i>
-        <input v-model="searchQuery" type="text" placeholder="Search departments..." />
+    <!-- Search Row -->
+    <div class="p-4 mb-6 bg-white dark:bg-[#1E293B] border border-[#E5E7EB] dark:border-[#1E293B] rounded-xl shadow-sm">
+      <div class="relative w-full">
+        <i class="pi pi-search absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280] dark:text-[#94A3B8]"></i>
+        <InputText 
+          v-model="searchQuery" 
+          placeholder="Search by department name..." 
+          class="w-full pl-11 !border-none !bg-transparent dark:text-[#F8FAFC] focus:ring-0" 
+        />
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="table-container glass-card">
-      <DataTable 
-        :value="filteredDepts" 
-        :loading="loading" 
-        stripedRows 
-        removableSort
-        responsiveLayout="scroll"
-        class="p-datatable-sm"
-      >
-        <Column field="name" header="Department Name" sortable>
-          <template #body="{ data }">
-            <span class="font-bold text-gray-800">{{ data.name }}</span>
-          </template>
-        </Column>
+    <!-- Departments Table -->
+    <DataTable 
+      :value="filteredDepts" 
+      :loading="loading" 
+      class="p-datatable-modern"
+      responsiveLayout="scroll"
+      removableSort
+      stripedRows
+    >
+      <Column header="DEPARTMENT NAME" sortable field="name">
+        <template #body="{ data }">
+          <span class="font-bold text-[#111827] dark:text-[#F8FAFC] text-[15px]">{{ data.name }}</span>
+        </template>
+      </Column>
 
-        <Column field="description" header="Description" sortable>
-          <template #body="{ data }">
-            <span class="text-gray-500 text-sm italic">{{ data.description || 'No description' }}</span>
-          </template>
-        </Column>
+      <Column header="DESCRIPTION" field="description">
+        <template #body="{ data }">
+          <p class="text-sm text-[#6B7280] dark:text-[#94A3B8] line-clamp-1 max-w-xs">
+            {{ data.description || 'No description provided' }}
+          </p>
+        </template>
+      </Column>
 
-        <Column header="Courses" sortable sortField="courses.length">
-          <template #body="{ data }">
-            <span class="role-badge rh">{{ data.courses?.length || 0 }} Courses</span>
-          </template>
-        </Column>
+      <Column header="COURSES LINKED" sortable sortField="courses.length">
+        <template #body="{ data }">
+          <span class="text-sm font-semibold text-[#3B82F6] dark:text-[#60A5FA]">
+            {{ data.courses?.length || 0 }} Courses
+          </span>
+        </template>
+      </Column>
 
-        <Column header="Actions" headerStyle="text-align: right" bodyStyle="text-align: right">
-          <template #body="{ data }">
-            <div v-if="canManage" class="actions-group">
-              <button @click="editDept(data)" class="action-btn edit" title="Edit"><i class="pi pi-pencil"></i></button>
-              <button @click="deleteDept(data)" class="action-btn delete" title="Delete"><i class="pi pi-trash"></i></button>
-            </div>
-          </template>
-        </Column>
-
-        <template #empty>
-          <div class="p-4 text-center text-muted">
-            <i class="pi pi-building block mb-2" style="font-size: 2rem"></i>
-            No departments found
+      <Column header="ACTIONS" headerStyle="text-align: right" bodyStyle="text-align: right">
+        <template #body="{ data }">
+          <div v-if="canManage" class="flex items-center justify-end gap-4 mr-2">
+            <button @click="editDept(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#3B82F6] transition-colors" title="Edit">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button @click="deleteDept(data)" class="text-[#6B7280] dark:text-[#94A3B8] hover:text-[#EF4444] transition-colors" title="Delete">
+              <i class="pi pi-trash"></i>
+            </button>
           </div>
         </template>
-      </DataTable>
-    </div>
+      </Column>
 
-    <!-- Modal -->
-    <transition name="fade">
-      <div v-if="showCreate" class="modal-overlay" @click.self="resetForm">
-        <div class="modal-card glass-card slide-up tiny">
-          <div class="modal-header">
-            <h3>{{ editingDept ? 'Edit' : 'New' }} Department</h3>
-            <button @click="resetForm" class="close-btn"><i class="pi pi-times"></i></button>
-          </div>
-          <div class="modal-body space-y-4">
-            <FormField v-model="form.name" label="Department Name" required />
-            <div class="form-field">
-              <label class="field-label">Description</label>
-              <textarea v-model="form.description" class="field-textarea" placeholder="Enter details..."></textarea>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button @click="resetForm" class="btn-premium secondary-btn">Cancel</button>
-            <button @click="saveDept" class="btn-premium btn-primary">Save</button>
-          </div>
+      <template #footer>
+        <div class="py-2 text-xs font-semibold text-[#6B7280] dark:text-[#94A3B8] uppercase tracking-wider">
+          Total Departments: {{ filteredDepts.length }}
+        </div>
+      </template>
+
+      <template #empty>
+        <div class="py-12 border-2 border-dashed border-[#E5E7EB] dark:border-[#334155] rounded-xl flex flex-col items-center">
+          <i class="pi pi-building text-4xl text-[#E5E7EB] dark:text-[#334155] mb-2"></i>
+          <p class="text-[#6B7280] dark:text-[#94A3B8] font-medium">No departments found.</p>
+        </div>
+      </template>
+    </DataTable>
+
+    <!-- Create/Edit Dialog -->
+    <Dialog 
+      v-model:visible="showCreate" 
+      :header="editingDept ? 'Edit Department' : 'New Department'" 
+      modal 
+      class="p-fluid max-w-md w-full"
+    >
+      <div class="flex flex-col gap-6 pt-2">
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Dept name</label>
+          <InputText v-model="form.name" placeholder="Informatique" class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-xs font-bold text-[#374151] dark:text-[#CBD5E1] uppercase tracking-wider">Description</label>
+          <Textarea v-model="form.description" rows="4" placeholder="Briefly describe the department..." class="!bg-[#F9FAFB] dark:!bg-[#334155] !border-none rounded-lg" />
         </div>
       </div>
-    </transition>
+      <template #footer>
+        <div class="flex gap-3 justify-end mt-2">
+          <Button label="Cancel" @click="resetForm" class="p-button-text p-button-secondary font-bold" />
+          <Button label="Save Dept" @click="saveDept" class="p-button-primary rounded-lg px-8 font-bold shadow-md" />
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
-<style scoped>
-/* Scoped styles preserved and refined for PrimeVue */
-.departments-view {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+<style>
+/* Reusing shared table styles from main.css if possible, or local override */
+.p-datatable-modern .p-datatable-thead > tr > th {
+  background: transparent !important;
+  color: #6B7280 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  border-bottom: 2px solid #F3F4F6 !important;
+  padding: 1rem 0.5rem !important;
 }
 
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+.dark .p-datatable-modern .p-datatable-thead > tr > th {
+  color: #94A3B8 !important;
+  border-bottom: 2px solid #334155 !important;
 }
 
-.page-title { font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin: 0; }
-.page-subtitle { color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem; }
+.p-datatable-modern .p-datatable-tbody > tr {
+  background: transparent !important;
+  border-bottom: 1px solid #F9FAFB !important;
+}
 
-.header-actions { display: flex; align-items: center; }
+.dark .p-datatable-modern .p-datatable-tbody > tr {
+  border-bottom: 1px solid #334155 !important;
+}
 
-.mini-stats { display: flex; gap: 1.5rem; border-right: 1px solid var(--surface-border); padding-right: 1.5rem; }
+.p-datatable-modern .p-datatable-tbody > tr:hover {
+  background: #F9FAFB !important;
+}
 
-.mini-stat { display: flex; flex-direction: column; text-align: right; }
-.mini-stat .label { font-size: 0.6rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
-.mini-stat .value { font-size: 1.25rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
+.dark .p-datatable-modern .p-datatable-tbody > tr:hover {
+  background: #334155 !important;
+}
 
-.filters-bar { padding: 0.75rem 1.25rem; }
-
-.search-input { display: flex; align-items: center; gap: 0.75rem; max-width: 300px; }
-.search-input i { color: var(--text-muted); }
-.search-input input { border: none; background: transparent; width: 100%; font-size: 0.9rem; color: var(--text-primary); outline: none; }
-
-.actions-group { display: flex; gap: 0.5rem; justify-content: flex-end; }
-
-/* Modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
-.modal-card.tiny { max-width: 450px; }
-.modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--surface-border); display: flex; justify-content: space-between; align-items: center; }
-.close-btn { background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.125rem; }
-.modal-body { padding: 1.5rem; }
-.modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--surface-border); display: flex; justify-content: flex-end; gap: 0.75rem; }
-
-.field-textarea { width: 100%; height: 80px; padding: 0.625rem; border-radius: var(--radius-sm); border: 1px solid var(--surface-border); background: var(--surface-bg); color: var(--text-primary); outline: none; resize: none; font-size: 0.9rem; }
-
-@media (max-width: 768px) {
-  .header-section { flex-direction: column; align-items: flex-start; gap: 1rem; }
+.p-datatable-modern .p-datatable-tbody > tr > td {
+  border: none !important;
+  padding: 1.25rem 0.5rem !important;
 }
 </style>

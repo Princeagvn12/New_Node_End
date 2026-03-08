@@ -8,16 +8,15 @@ import departmentService from '../services/department.service'
 import courseService from '../services/course.service'
 import hourService from '../services/hour.service'
 import { showError } from '../utils/toast'
-import DataView from 'primevue/dataview'
-import Button from 'primevue/button'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 
 // shared store
 const store = useUserStore()
 
 // Computed values
 const role = computed(() => store.user?.role || 'guest')
-const userId = computed(() => store.user?._id)
-const userName = computed(() => store.user?.name || 'User')
+const userName = computed(() => store.user?.name || 'Admin Système')
 
 // Initials helper
 const getInitials = (name) => {
@@ -74,91 +73,87 @@ watch(() => store.user, (u) => u && loadForRole())
 </script>
 
 <template>
-  <div class="dashboard-v2-container">
-    <!-- Top Contextual Header -->
-    <div class="dashboard-top-header">
-      <h1 class="dashboard-simple-title">Dashboard Overview</h1>
-    </div>
-
-    <div class="dashboard-main-body scrollable-content">
-      <!-- Simple Welcome Greeting -->
-      <div class="welcome-section-v2">
-        <h2 class="welcome-text-huge">Welcome, {{ userName }}</h2>
-        <p class="welcome-sub-text">Manage your institution's departments, courses, and users from here.</p>
+  <div class="dashboard-v3-root">
+    <div class="dashboard-content-v3 scrollable-area">
+      <!-- Welcome Header -->
+      <div class="welcome-banner-v3">
+        <h1 class="welcome-title-v3">Welcome, {{ userName }}</h1>
+        <p class="welcome-subtitle-v3">Manage your institution's departments, courses, and users from here.</p>
       </div>
 
-      <!-- Stats Section -->
-      <div class="dashboard-stats-v2">
-        <div class="stat-card-v2 glass-card">
-          <div class="stat-icon-circle bg-blue-50 text-blue-500">
+      <!-- Stats Grid -->
+      <div class="stats-grid-v3">
+        <div class="stat-card-v3 glass-card">
+          <div class="stat-icon-v3 bg-blue-100 text-blue-600">
             <i class="pi pi-users"></i>
           </div>
-          <div class="stat-content-v2">
-            <span class="stat-label-v2">TOTAL USERS</span>
-            <span class="stat-value-v2">{{ usersCount }}</span>
+          <div class="stat-info-v3">
+            <span class="stat-label-v3">TOTAL USERS</span>
+            <span class="stat-value-v3">{{ usersCount }}</span>
           </div>
         </div>
 
-        <div class="stat-card-v2 glass-card">
-          <div class="stat-icon-circle bg-purple-50 text-purple-500">
+        <div class="stat-card-v3 glass-card">
+          <div class="stat-icon-v3 bg-purple-100 text-purple-600">
             <i class="pi pi-building"></i>
           </div>
-          <div class="stat-content-v2">
-            <span class="stat-label-v2">DEPARTMENTS</span>
-            <span class="stat-value-v2">{{ departmentsCount }}</span>
+          <div class="stat-info-v3">
+            <span class="stat-label-v3">DEPARTMENTS</span>
+            <span class="stat-value-v3">{{ departmentsCount }}</span>
           </div>
         </div>
 
-        <div class="stat-card-v2 glass-card">
-          <div class="stat-icon-circle bg-emerald-50 text-emerald-500">
+        <div class="stat-card-v3 glass-card">
+          <div class="stat-icon-v3 bg-emerald-100 text-emerald-600">
             <i class="pi pi-book"></i>
           </div>
-          <div class="stat-content-v2">
-            <span class="stat-label-v2">TOTAL COURSES</span>
-            <span class="stat-value-v2">{{ coursesCount }}</span>
+          <div class="stat-info-v3">
+            <span class="stat-label-v3">TOTAL COURSES</span>
+            <span class="stat-value-v3">{{ coursesCount }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Recent Users (DataView style) -->
-      <div class="section-v2 mt-8">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="text-sm font-bold uppercase tracking-widest text-muted">UTILISATEURS RÉCENTS</h3>
-          <router-link to="/users" class="text-blue-500 font-bold text-sm">View All</router-link>
+      <!-- Recent Users (Borderless Table) -->
+      <div class="recent-section-v3 mt-10">
+        <div class="section-header-v3">
+          <h3 class="section-title-v3">UTILISATEURS RÉCENTS</h3>
+          <router-link to="/users" class="view-all-link">View All</router-link>
         </div>
 
-        <div class="glass-card overflow-hidden">
-          <DataView :value="recentUsers" class="recent-users-dataview">
-            <template #list="slotProps">
-              <div class="grid grid-cols-1">
-                <div v-for="(u, index) in slotProps.items" :key="index" class="list-item-user">
-                  <div class="flex items-center gap-4 flex-1">
-                    <div class="avatar-circle-v2">
-                      {{ getInitials(u.name) }}
-                    </div>
-                    <div class="user-info-v2">
-                      <span class="user-name-v2">{{ u.name }}</span>
-                      <span class="user-email-v2">{{ u.email }}</span>
-                    </div>
+        <div class="table-container-v3 glass-card">
+          <DataTable :value="recentUsers" class="borderless-table" scrollable scrollHeight="flex">
+            <Column field="name" header="USER">
+              <template #body="slotProps">
+                <div class="user-cell-v3">
+                  <div class="user-avatar-square" :class="'avatar-color-' + (recentUsers.indexOf(slotProps.data) % 5)">
+                    {{ getInitials(slotProps.data.name) }}
                   </div>
-                  
-                  <div class="flex items-center gap-8">
-                    <span class="role-pill-v2" :class="u.role">{{ u.role }}</span>
-                    <span class="text-sm text-muted font-medium hidden md:block">{{ u.email }}</span>
-                    <div class="flex gap-2">
-                       <i class="pi pi-pencil p-2 hover:bg-surface-hover rounded cursor-pointer text-muted"></i>
-                       <i class="pi pi-trash p-2 hover:bg-surface-hover rounded cursor-pointer text-muted"></i>
-                    </div>
-                  </div>
+                  <span class="user-name-v3">{{ slotProps.data.name }}</span>
                 </div>
-              </div>
-            </template>
-            <template #empty>
-              <div class="p-12 text-center text-muted">
-                Aucun utilisateur récent
-              </div>
-            </template>
-          </DataView>
+              </template>
+            </Column>
+            <Column field="role" header="ROLE">
+              <template #body="slotProps">
+                <span class="role-pill-v3" :class="slotProps.data.role">
+                  {{ slotProps.data.role }}
+                </span>
+              </template>
+            </Column>
+            <Column field="email" header="CONTACT">
+              <template #body="slotProps">
+                <span class="user-email-v3">{{ slotProps.data.email }}</span>
+              </template>
+            </Column>
+            <Column header="ACTIONS">
+              <template #body>
+                <div class="action-icons-v3">
+                  <i class="pi pi-pencil action-icon"></i>
+                  <i class="pi pi-trash action-icon delete"></i>
+                </div>
+              </template>
+            </Column>
+          </DataTable>
         </div>
       </div>
     </div>
@@ -166,165 +161,254 @@ watch(() => store.user, (u) => u && loadForRole())
 </template>
 
 <style scoped>
-.dashboard-v2-container {
+.dashboard-v3-root {
   height: calc(100vh - var(--topbar-height));
-  background: var(--surface-bg);
+  background: #F8FAFC; /* Light gray from image */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-.dashboard-top-header {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
-  background: var(--surface-card);
-  border-bottom: 1px solid var(--surface-border);
-  flex-shrink: 0;
+.dark .dashboard-v3-root {
+  background: #020617; /* Even deeper navy for background depth */
 }
 
-.dashboard-simple-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.dashboard-main-body {
+.dashboard-content-v3 {
   flex: 1;
-  padding: 2rem 2rem;
+  padding: 3rem 2.5rem;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
 }
 
-.scrollable-content {
+.scrollable-area {
   overflow-y: auto;
 }
 
-.welcome-section-v2 {
+.welcome-banner-v3 {
   margin-bottom: 2.5rem;
 }
 
-.welcome-text-huge {
+.welcome-title-v3 {
   font-size: 2.5rem;
   font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: -1px;
+  color: #0F172A;
+  margin-bottom: 0.5rem;
 }
 
-.welcome-sub-text {
-  font-size: 1.1rem;
-  color: var(--text-muted);
-  margin-top: 0.5rem;
+.dark .welcome-title-v3 {
+  color: #F8FAFC;
 }
 
-.dashboard-stats-v2 {
+.welcome-subtitle-v3 {
+  font-size: 1.125rem;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.dark .welcome-subtitle-v3 {
+  color: #94A3B8;
+}
+
+.stats-grid-v3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
 }
 
-.stat-card-v2 {
-  padding: 1.5rem;
+.stat-card-v3 {
+  padding: 2.5rem 2rem;
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
-.stat-icon-circle {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
+.stat-icon-v3 {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
 }
 
-.stat-content-v2 {
+.stat-info-v3 {
   display: flex;
   flex-direction: column;
+  gap: 0.25rem;
 }
 
-.stat-label-v2 {
-  font-size: 0.75rem;
+.stat-label-v3 {
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: #64748B;
+  letter-spacing: 0.5px;
+}
+
+.dark .stat-label-v3 {
+  color: #94A3B8;
+}
+
+.stat-value-v3 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1;
+}
+
+.dark .stat-value-v3 {
+  color: #F8FAFC;
+}
+
+.section-header-v3 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0 0.5rem;
+}
+
+.section-title-v3 {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1E293B;
   letter-spacing: 1px;
 }
 
-.stat-value-v2 {
-  font-size: 2.25rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  line-height: 1.1;
+.dark .section-title-v3 {
+  color: #CBD5E1;
 }
 
-/* User List DataView */
-.list-item-user {
+.view-all-link {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #3B82F6;
+  text-decoration: none;
+}
+
+.table-container-v3 {
+  background: white;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.dark .table-container-v3 {
+  background: #1E293B;
+}
+
+/* Borderless style table */
+:deep(.borderless-table.p-datatable) {
+  border: none !important;
+}
+
+:deep(.borderless-table .p-datatable-thead > tr > th) {
+  background: white !important;
+  color: #94A3B8 !important;
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid #F1F5F9 !important;
+  padding: 1.25rem 2rem !important;
+}
+
+.dark :deep(.borderless-table .p-datatable-thead > tr > th) {
+  background: #1E293B !important;
+  color: #94A3B8 !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+:deep(.borderless-table .p-datatable-tbody > tr) {
+  background: white !important;
+  border-bottom: 1px solid #F8FAFC !important;
+}
+
+.dark :deep(.borderless-table .p-datatable-tbody > tr) {
+  background: #1E293B !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+:deep(.borderless-table .p-datatable-tbody > tr > td) {
+  padding: 1.25rem 2rem !important;
+  border: none !important;
+}
+
+.user-cell-v3 {
   display: flex;
   align-items: center;
-  padding: 1.25rem 2rem;
-  border-bottom: 1px solid var(--surface-border);
-  transition: background 0.2s;
+  gap: 1.25rem;
 }
 
-.list-item-user:hover {
-  background: var(--surface-hover);
-}
-
-.list-item-user:last-child {
-  border-bottom: none;
-}
-
-.avatar-circle-v2 {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #EFF6FF;
-  color: var(--color-primary);
+.user-avatar-square {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 
-.user-info-v2 {
-  display: flex;
-  flex-direction: column;
-}
+/* Specific avatar backgrouns colors like image */
+.avatar-color-0 { background: #EFF6FF; color: #3B82F6; }
+.avatar-color-1 { background: #FDF4FF; color: #A855F7; }
+.avatar-color-2 { background: #F0FDFA; color: #0D9488; }
+.avatar-color-3 { background: #FFF7ED; color: #EA580C; }
+.avatar-color-4 { background: #FEF2F2; color: #EF4444; }
 
-.user-name-v2 {
+.user-name-v3 {
   font-weight: 700;
-  font-size: 1rem;
-  color: var(--text-primary);
+  color: #1E293B;
+  font-size: 0.9375rem;
 }
 
-.user-email-v2 {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+.dark .user-name-v3 {
+  color: #F8FAFC;
 }
 
-.role-pill-v2 {
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius-full);
+.role-pill-v3 {
+  padding: 0.375rem 1rem;
+  border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 700;
-  text-transform: lowercase;
 }
 
-.role-pill-v2.admin { background: #FEF3C7; color: #92400E; }
-.role-pill-v2.rh { background: #E0F2FE; color: #075985; }
-.role-pill-v2.formateur_principal { background: #F5F3FF; color: #5B21B6; }
-.role-pill-v2.formateur { background: #ECFDF5; color: #065F46; }
-.role-pill-v2.etudiant { background: #F1F5F9; color: #475569; }
+.role-pill-v3.admin { background: #DBEAFE; color: #1D4ED8; }
+.role-pill-v3.rh { background: #DCFCE7; color: #15803D; }
+.role-pill-v3.formateur { background: #F3E8FF; color: #7E22CE; }
+.role-pill-v3.formateur_principal { background: #FEF3C7; color: #B45309; }
+.role-pill-v3.etudiant { background: #E0F2FE; color: #0369A1; }
 
-@media (max-width: 768px) {
-  .dashboard-stats-v2 {
-    grid-template-columns: 1fr;
-  }
+.user-email-v3 {
+  color: #64748B;
+  font-weight: 500;
+}
+
+.dark .user-email-v3 {
+  color: #94A3B8;
+}
+
+.action-icons-v3 {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.action-icon {
+  color: #94A3B8;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: color 0.15s;
+}
+
+.dark .action-icon {
+  color: #64748B;
+}
+
+.action-icon:hover { color: #3B82F6; }
+.dark .action-icon:hover { color: #60A5FA; }
+.action-icon.delete:hover { color: #EF4444; }
+
+@media (max-width: 1024px) {
+  .stats-grid-v3 { grid-template-columns: 1fr; }
 }
 </style>
